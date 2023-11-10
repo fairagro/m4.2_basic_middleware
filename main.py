@@ -3,7 +3,6 @@ import extruct
 import requests
 import pprint
 from w3lib.html import get_base_url
-from json import JSONDecodeError
 import xml.etree.ElementTree as ET
 
 sitemap_url = 'https://doi.ipk-gatersleben.de/sitemap.xml'
