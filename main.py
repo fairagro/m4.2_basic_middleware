@@ -11,36 +11,31 @@ import json
 sitemap_url = 'https://maps.bonares.de/finder/resources/googleds/sitemap.xml'
 
 
-def extract_sites(sitemap_url):
-    # Fetch the XML data
-    response = requests.get(sitemap_url)
-    sitemap_xml = response.text
-
-    # Parse the XML data
-    root = ET.fromstring(sitemap_xml)
-    sites = [ url.text for url in root.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}loc' )]
-
-    return sites
-
-def get_html(url):
+def get_url(url):
     r = requests.get(url)
-    # e!DAL returns the HTML content-type 'text/html' which implies ISO-8859-1 encoding.
+    # e!DAL returns the HTTP content-type 'text/html' which implies ISO-8859-1 encoding.
     # Nevertheless UTF-8 encoding is used. This confuses the requests library.
     # Fortunately the requests library can detect the encoding automatically. But we need to
     # apply it explicitly.
-    # The correct content-type would be 'text/html; charset=utf-8'.
-    html = r.content.decode(r.apparent_encoding)
-    return html
+    # The correct content-type for e!DAL would be 'text/html; charset=utf-8'.
+    content = r.content.decode(r.apparent_encoding)
+    return content
+
+def extract_sites(sitemap_url):
+    sitemap_xml = get_url(sitemap_url)
+    xml_root = ET.fromstring(sitemap_xml)
+    sites = [ url.text for url in xml_root.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}loc' )]
+    return sites
 
 def extract_json(url):
-    html = get_html(url)
+    html = get_url(url)
     soup = BeautifulSoup(html, 'html.parser')
     json_ld = soup.find_all('script', type='application/ld+json')
     result = [ js.text for js in json_ld ]
     return result
     
 def extract_metadata(url):
-    html = get_html(url)
+    html = get_url(url)
     base_url = get_base_url(html, url)
 
     # only scrape JSON-LD data.
