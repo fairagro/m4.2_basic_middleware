@@ -17,6 +17,7 @@ pip install -r requirements.txt
 ```
 
 Running the script is very simple:
+
 ```powershell
 python .\main.py
 ```

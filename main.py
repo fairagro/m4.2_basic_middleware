@@ -4,17 +4,12 @@ import requests
 import pprint
 from w3lib.html import get_base_url
 import xml.etree.ElementTree as ET
-# from bs4 import BeautifulSoup
-# import json
+from bs4 import BeautifulSoup
+import json
 
-sitemap_url = 'https://doi.ipk-gatersleben.de/sitemap.xml'
+#sitemap_url = 'https://doi.ipk-gatersleben.de/sitemap.xml'
+sitemap_url = 'https://maps.bonares.de/finder/resources/googleds/sitemap.xml'
 
-
-# # Define a function to filter out JSON-LD script elements
-# def filter_elements(tag):
-#     if tag.name == 'script' and tag.get('type') == 'application/ld+json':
-#         return True
-#     return False
 
 def extract_sites(sitemap_url):
     # Fetch the XML data
@@ -27,7 +22,7 @@ def extract_sites(sitemap_url):
 
     return sites
 
-def extract_metadata(url):
+def get_html(url):
     r = requests.get(url)
     # e!DAL returns the HTML content-type 'text/html' which implies ISO-8859-1 encoding.
     # Nevertheless UTF-8 encoding is used. This confuses the requests library.
@@ -35,13 +30,18 @@ def extract_metadata(url):
     # apply it explicitly.
     # The correct content-type would be 'text/html; charset=utf-8'.
     html = r.content.decode(r.apparent_encoding)
-    base_url = get_base_url(html, r.url)
+    return html
+
+def extract_json(url):
+    html = get_html(url)
+    soup = BeautifulSoup(html, 'html.parser')
+    json_ld = soup.find_all('script', type='application/ld+json')
+    result = [ js.text for js in json_ld ]
+    return result
     
-    # soup = BeautifulSoup(r.content.decode(r.apparent_encoding), 'html.parser')
-    # json_ld = filter(filter_elements, soup.find_all())
-    # for j in json_ld:
-    #     t = j.text
-    #     js = json.loads(t, strict = False)
+def extract_metadata(url):
+    html = get_html(url)
+    base_url = get_base_url(html, url)
 
     # only scrape JSON-LD data.
     # e!DAL also offers DublinCore and RDFa, but this does not add useful information.
@@ -55,10 +55,14 @@ def extract_metadata(url):
 
 
 def main():
-    stdout = pprint.PrettyPrinter(indent=2, stream=sys.stdout)
     stderr = pprint.PrettyPrinter(indent=2, stream=sys.stderr)
 
     sites = extract_sites(sitemap_url)
+
+    # sites = [
+    #     "https://maps.bonares.de/finder/resources/googleds/datasets/fca18db3-fc1b-4c1c-bb81-afc0dcadc29e.html"
+    #     "https://doi.org/10.5447/ipk/2012/10"
+    # ]
 
     # Extract metadata
     result = []
@@ -68,8 +72,14 @@ def main():
             result += metadata['json-ld']
         except Exception as e:
             stderr.pprint(site + ': ' + str(e))
+            stderr.pprint("Problematic JSON:")
+            joined_json = ''.join(extract_json(site))
+            print(joined_json, file=sys.stderr)
 
-    stdout.pprint(result)
+    try:
+        print(json.dumps(result, indent=2))
+    except Exception as e:
+        stderr.pprint(str(e))
 
 
 if __name__ == '__main__':
