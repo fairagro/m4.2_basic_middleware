@@ -1,0 +1,5 @@
+sitemaps:
+  - name: bonares
+    url: https://maps.bonares.de/finder/resources/googleds/sitemap.xml
+  - name: edal
+    url: https://doi.ipk-gatersleben.de/sitemap.xml
