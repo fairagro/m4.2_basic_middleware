@@ -137,7 +137,7 @@ def scrape_repo_and_commit_to_git(name, sitemap_url, git_repo):
     git_repo.index.add([path])
     formatted_time = start_timestamp.strftime('%Y-%m-%d %H:%M:%S.%f %Z%z')
     git_repo.index.commit(
-        f"FAIRagro middleware scraper for repo '{name}' with sitemap '{sitemap_url}, started at '{formatted_time}")
+        f"FAIRagro middleware scraper for repo '{name}' with sitemap {sitemap_url}, started at {formatted_time}")
 
 def make_ssh_key_path(original_path):
     # This is some ugly workaround for git on Windows. In this case git is based on MSYS, so the
