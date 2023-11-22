@@ -3,3 +3,14 @@ sitemaps:
     url: https://maps.bonares.de/finder/resources/googleds/sitemap.xml
   - name: edal
     url: https://doi.ipk-gatersleben.de/sitemap.xml
+
+# Note on paths: relative paths refer to the directory the middleware script resides in.
+# You can omit the ssh_key_path if you have a local git setup with your personal key.
+# If branch is omitted, the main branch is used
+git:
+  repo_url: git@github.com:fairagro/middleware_repo.git
+  branch: main
+  ssh_key_path: ssh_key.pem
+  local_path: output
+  user_name: "FAIRagro middleware"
+  user_email: "middleware@fairagro.net"

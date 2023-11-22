@@ -1,17 +1,21 @@
 import os
+from pathlib import Path, PurePosixPath
+import datetime, pytz
 import argparse, pathlib
 import yaml
 import itertools
 import extruct
 import requests
-import opentelemetry.instrumentation.requests
+import git
 from w3lib.html import get_base_url
 import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 import json
 from opentelemetry import trace #, metrics
 from opentelemetry.trace import Status, StatusCode
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.sampling import ALWAYS_ON
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
     ConsoleSpanExporter,
@@ -22,18 +26,27 @@ from opentelemetry.sdk.trace.export import (
 #     PeriodicExportingMetricReader,
 # )
 from opentelemetry.semconv.trace import SpanAttributes
-
+import opentelemetry.instrumentation.requests
+import opentelemetry.instrumentation.urllib
 
 # Initialize OpenTelemetry for Tracing to Console
 # Note: it would be nice to read in the configuration from a file. But this is not supported yet.
 # There is the possibility to define the configuration in terms of env variables, but the documentation
 # is far from optimal and there seems to be no way set a console exporter.
-trace.set_tracer_provider(TracerProvider())
+trace.set_tracer_provider(
+    TracerProvider(
+        resource=Resource.create({
+            "service.name": "FAIRagro middleware"
+        }),
+        sampler=ALWAYS_ON
+    )
+)
 trace.get_tracer_provider().add_span_processor(
     BatchSpanProcessor(ConsoleSpanExporter())
 )
-otel_tracer = trace.get_tracer("FAIRagro.middleware.tracer")
 opentelemetry.instrumentation.requests.RequestsInstrumentor().instrument()
+opentelemetry.instrumentation.urllib.URLLibInstrumentor().instrument()
+otel_tracer = trace.get_tracer("FAIRagro.middleware.tracer")
 
 # Note: we would like to create a synchronous gauge to report the number of datasets within each repo.
 # Unfortunately the OpenTelemetry Python SDK does not support this yet. We could try to work around with
@@ -45,11 +58,6 @@ opentelemetry.instrumentation.requests.RequestsInstrumentor().instrument()
 # )
 # otel_meter = metrics.get_meter("FAIRagro.middleware.meter")
 
-
-def get_sitemaps_from_config(config_file):
-    with open(config_file, 'r') as f:
-        config = yaml.safe_load(f)
-        return config['sitemaps']
 
 def get_url(url):
     r = requests.get(url)
@@ -111,20 +119,95 @@ def extract_many_schema_org(urls):
             yield metadata
 
 @otel_tracer.start_as_current_span("scrape_repo")
-def scrape_repo(name, sitemap_url, output_dir):
+def scrape_repo_and_commit_to_git(name, sitemap_url, git_repo):
     otel_span = trace.get_current_span()
     otel_span.set_attribute("FAIRagro.middleware.repository_name", name)
     otel_span.set_attribute("FAIRagro.middleware.repository_sitemap_url", sitemap_url)
+    start_timestamp = datetime.datetime.now(pytz.UTC)
     sites = extract_sites(sitemap_url)
-    # count_sites = len(sites)
     metadata = list(extract_many_schema_org(sites))
+    # We should collect some metrics data, but OpenTelemetry does not yet support transmitting
+    # simple synchronous gauge values.
+    # count_sites = len(sites)
     # count_metadata = len(metadata)
     result = list(itertools.chain.from_iterable(metadata))
-    path = os.path.join(output_dir, f'{name}.json')
+    path = os.path.join(git_repo.working_dir, f'{name}.json')
     with open(path, 'w') as f:
         f.write(json.dumps(result, indent=2))
+    git_repo.index.add([path])
+    formatted_time = start_timestamp.strftime('%Y-%m-%d %H:%M:%S.%f %Z%z')
+    git_repo.index.commit(
+        f"FAIRagro middleware scraper for repo '{name}' with sitemap '{sitemap_url}, started at '{formatted_time}")
 
-@otel_tracer.start_as_current_span("main")   
+def make_ssh_key_path(original_path):
+    # This is some ugly workaround for git on Windows. In this case git is based on MSYS, so the
+    # ssh command requires POSIX compatible paths, whereas otherwise we deal with Windows paths
+    # on Windows. Thus we need to convert the Windows path to the ssh key to MSYS-POSIX.
+    # Be aware: this is brittle as it assumes that we always use MSYS ssh on Windows. Maybe there
+    # are other ways to setup git.
+    path = Path(original_path)
+    parts = path.parts
+    if parts[0].endswith(':\\'):
+        parts = ['/', parts[0].rstrip(':\\'), *parts[1:]]
+    return PurePosixPath(*parts)
+
+def setup_git_repo(repo_info):
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+
+    # find out a local path for the repo
+    local_path = repo_info['local_path']
+    if not os.path.isabs(local_path):
+        local_path = os.path.normpath(os.path.join(script_dir, local_path))
+
+    # find the ssh key and use it
+    ssh_key_path = repo_info.get('ssh_key_path')
+    if ssh_key_path and not os.path.isabs(ssh_key_path):
+        ssh_key_path = os.path.normpath(os.path.join(script_dir, ssh_key_path))
+        # Note: actutally /dev/null is OS-dependent. There is os.devnull to cope with this.
+        # But for my git setup on Windwos, /dev/null is the correct value -- probably because
+        # it uses an MSYS-based ssh. 
+        os.environ['GIT_SSH_COMMAND'] = f'ssh -F /dev/null -i {make_ssh_key_path(ssh_key_path)}'
+
+    # Initialize existing repo or clone it, if this hasn't been done yet
+    try:
+        repo_url = repo_info['repo_url']
+        repo = git.Repo(local_path)
+        if repo.remotes.origin.url != repo_url:
+            raise RuntimeError(f"Repository {local_path} already exists and is not a clone of {repo_url}")
+    except (git.exc.NoSuchPathError, git.exc.InvalidGitRepositoryError):
+        repo = git.Repo.clone_from(repo_url, local_path)
+
+    # set git config
+    config_writer = repo.config_writer()
+    config_writer.set_value("user", "name", repo_info['user_name'])
+    config_writer.set_value("user", "email", repo_info['user_email'])
+    config_writer.release()
+
+    # switch into desired branch or create it
+    branch = repo_info.get('branch', 'main')
+    if branch not in repo.branches:
+        # before we can create a branch we need have a commit, so try to access it
+        try:
+            _ = repo.head.commit
+        except ValueError:
+            # create initial commit
+            readme = """# Purpose of this repository #
+
+This repository is automatically maintained by the FAIRagro middleware. It stores scraped meta data from resarch data repositories in consolidated JSON-LD files.
+"""
+            readme_path = os.path.join(local_path, 'README.md')
+            with open(readme_path, "w") as file:
+                file.write(readme)
+            repo.index.add([readme_path])
+            repo.index.commit("Initial commit")
+        # create new branch
+        repo.create_head(branch)
+        repo.remotes.origin.push(branch)
+    repo.git.checkout(branch)
+
+    return repo
+
+@otel_tracer.start_as_current_span("main")
 def main():
 
     parser = argparse.ArgumentParser(
@@ -135,21 +218,24 @@ def main():
                         type=pathlib.Path,
                         default='config.yml',
                         help='config file that defines repositories to scrape')
-    parser.add_argument('--output', '-o',
-                        type=pathlib.Path,
-                        default='.',
-                        help='output directory for scraped data')
     args = parser.parse_args()
 
     try:
         if not os.path.isfile(args.config):
             raise FileNotFoundError(f"Config file {args.config} does not exist.")
-        if not os.path.isdir(args.output):
-            raise FileNotFoundError(f"Output directory {args.output} does not exist.")
 
-        sitemaps = get_sitemaps_from_config(args.config)
-        for sitemap in sitemaps:
-            scrape_repo(sitemap['name'], sitemap['url'], args.output)
+        # load config
+        with open(args.config, 'r') as f:
+            config = yaml.safe_load(f)
+
+        # setup git repo
+        git_repo = setup_git_repo(config['git'])
+
+        # scrape sites
+        git_repo.remotes.origin.pull()
+        for sitemap in config['sitemaps']:
+            scrape_repo_and_commit_to_git(sitemap['name'], sitemap['url'], git_repo)
+        git_repo.remotes.origin.push()
     except Exception as e:
         otel_span = trace.get_current_span()
         otel_span.record_exception(e)
