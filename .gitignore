@@ -1,2 +1,3 @@
 .venv
 ssh_key.pem
+output/
