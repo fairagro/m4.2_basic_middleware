@@ -1,3 +1,5 @@
+import os
+import argparse, pathlib
 import yaml
 import itertools
 import extruct
@@ -7,23 +9,41 @@ from w3lib.html import get_base_url
 import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 import json
-from opentelemetry import trace
+from opentelemetry import trace #, metrics
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
     ConsoleSpanExporter,
 )
+# from opentelemetry.sdk.metrics import MeterProvider
+# from opentelemetry.sdk.metrics.export import (
+#     ConsoleMetricExporter,
+#     PeriodicExportingMetricReader,
+# )
 from opentelemetry.semconv.trace import SpanAttributes
 
 
 # Initialize OpenTelemetry for Tracing to Console
+# Note: it would be nice to read in the configuration from a file. But this is not supported yet.
+# There is the possibility to define the configuration in terms of env variables, but the documentation
+# is far from optimal and there seems to be no way set a console exporter.
 trace.set_tracer_provider(TracerProvider())
 trace.get_tracer_provider().add_span_processor(
     BatchSpanProcessor(ConsoleSpanExporter())
 )
 otel_tracer = trace.get_tracer("FAIRagro.middleware.tracer")
 opentelemetry.instrumentation.requests.RequestsInstrumentor().instrument()
+
+# Note: we would like to create a synchronous gauge to report the number of datasets within each repo.
+# Unfortunately the OpenTelemetry Python SDK does not support this yet. We could try to work around with
+# an observable gauge, but this is far from ideal.
+#
+# Initialize OpenTelemetry for Metrics to Console
+# metrics.set_meter_provider(
+#     MeterProvider(metrics_readers=[PeriodicExportingMetricReader(ConsoleMetricExporter())])
+# )
+# otel_meter = metrics.get_meter("FAIRagro.middleware.meter")
 
 
 def get_sitemaps_from_config(config_file):
@@ -90,21 +110,46 @@ def extract_many_schema_org(urls):
             # e!DAL sometimes defines two entries: "@type":"Dataset" and "@type":"Taxon".
             yield metadata
 
-def scrape_repo(name, sitemap_url):
+@otel_tracer.start_as_current_span("scrape_repo")
+def scrape_repo(name, sitemap_url, output_dir):
+    otel_span = trace.get_current_span()
+    otel_span.set_attribute("FAIRagro.middleware.repository_name", name)
+    otel_span.set_attribute("FAIRagro.middleware.repository_sitemap_url", sitemap_url)
     sites = extract_sites(sitemap_url)
-    count_sites = len(sites)
+    # count_sites = len(sites)
     metadata = list(extract_many_schema_org(sites))
-    count_metadata = len(metadata)
+    # count_metadata = len(metadata)
     result = list(itertools.chain.from_iterable(metadata))
-    with open(f'{name}.json', 'w') as f:
+    path = os.path.join(output_dir, f'{name}.json')
+    with open(path, 'w') as f:
         f.write(json.dumps(result, indent=2))
 
 @otel_tracer.start_as_current_span("main")   
 def main():
+
+    parser = argparse.ArgumentParser(
+        prog = 'schema_scraper',
+        description= 'Extracts schema.org meta data from research data repositories.',
+    )
+    parser.add_argument('--config', '-c',
+                        type=pathlib.Path,
+                        default='config.yml',
+                        help='config file that defines repositories to scrape')
+    parser.add_argument('--output', '-o',
+                        type=pathlib.Path,
+                        default='.',
+                        help='output directory for scraped data')
+    args = parser.parse_args()
+
     try:
-        sitemaps = get_sitemaps_from_config('config.yml')
+        if not os.path.isfile(args.config):
+            raise FileNotFoundError(f"Config file {args.config} does not exist.")
+        if not os.path.isdir(args.output):
+            raise FileNotFoundError(f"Output directory {args.output} does not exist.")
+
+        sitemaps = get_sitemaps_from_config(args.config)
         for sitemap in sitemaps:
-            scrape_repo(sitemap['name'], sitemap['url'])
+            scrape_repo(sitemap['name'], sitemap['url'], args.output)
     except Exception as e:
         otel_span = trace.get_current_span()
         otel_span.record_exception(e)
