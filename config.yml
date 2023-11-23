@@ -4,6 +4,8 @@ sitemaps:
   - name: edal
     url: https://doi.ipk-gatersleben.de/sitemap.xml
 
+connection_limit: 100
+
 # Note on paths: relative paths refer to the directory the middleware script resides in.
 # You can omit the ssh_key_path if you have a local git setup with your personal key.
 # If branch is omitted, the main branch is used
@@ -14,3 +16,6 @@ git:
   local_path: output
   user_name: "FAIRagro middleware"
   user_email: "middleware@fairagro.net"
+
+opentelemetry: {}
+#  endpoint:

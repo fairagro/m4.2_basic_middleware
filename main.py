@@ -1,25 +1,25 @@
-import os
+import asyncio, aiofiles
+import aiohttp
+import chardet
+import os, sys
 from pathlib import Path, PurePosixPath
 import datetime, pytz
-import argparse, pathlib
+import argparse
 import yaml
 import itertools
 import extruct
-import requests
 import git
 from w3lib.html import get_base_url
 import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 import json
+import logging
 from opentelemetry import trace #, metrics
-from opentelemetry.trace import Status, StatusCode
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.sampling import ALWAYS_ON
-from opentelemetry.sdk.trace.export import (
-    BatchSpanProcessor,
-    ConsoleSpanExporter,
-)
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 # from opentelemetry.sdk.metrics import MeterProvider
 # from opentelemetry.sdk.metrics.export import (
 #     ConsoleMetricExporter,
@@ -28,35 +28,43 @@ from opentelemetry.sdk.trace.export import (
 from opentelemetry.semconv.trace import SpanAttributes
 import opentelemetry.instrumentation.requests
 import opentelemetry.instrumentation.urllib
+import opentelemetry.instrumentation.aiohttp_client
 
-# Initialize OpenTelemetry for Tracing to Console
-# Note: it would be nice to read in the configuration from a file. But this is not supported yet.
-# There is the possibility to define the configuration in terms of env variables, but the documentation
-# is far from optimal and there seems to be no way set a console exporter.
-trace.set_tracer_provider(
-    TracerProvider(
-        resource=Resource.create({
-            "service.name": "FAIRagro middleware"
-        }),
-        sampler=ALWAYS_ON
-    )
-)
-trace.get_tracer_provider().add_span_processor(
-    BatchSpanProcessor(ConsoleSpanExporter())
-)
-opentelemetry.instrumentation.requests.RequestsInstrumentor().instrument()
-opentelemetry.instrumentation.urllib.URLLibInstrumentor().instrument()
-otel_tracer = trace.get_tracer("FAIRagro.middleware.tracer")
 
-# Note: we would like to create a synchronous gauge to report the number of datasets within each repo.
-# Unfortunately the OpenTelemetry Python SDK does not support this yet. We could try to work around with
-# an observable gauge, but this is far from ideal.
-#
-# Initialize OpenTelemetry for Metrics to Console
-# metrics.set_meter_provider(
-#     MeterProvider(metrics_readers=[PeriodicExportingMetricReader(ConsoleMetricExporter())])
-# )
-# otel_meter = metrics.get_meter("FAIRagro.middleware.meter")
+def setup_opentelemetry(otlp_config):
+    # Initialize some automatic OpenTelemetry instrumentations.
+    # Actually we only use aiohttp, but requests and urllib are indirect dependencies.
+    # We we also instrument them in case they are used internally.
+    opentelemetry.instrumentation.requests.RequestsInstrumentor().instrument()
+    opentelemetry.instrumentation.urllib.URLLibInstrumentor().instrument()
+    opentelemetry.instrumentation.aiohttp_client.AioHttpClientInstrumentor().instrument()
+
+    endpoint = otlp_config.get('endpoint')
+    if endpoint:
+        # Initialize OpenTelemetry for Tracing to OTLP endpoint
+        trace.set_tracer_provider(
+            TracerProvider(
+                resource=Resource.create({
+                    "service.name": "FAIRagro middleware"
+                }),
+                active_span_processor=BatchSpanProcessor(
+                    OTLPSpanExporter(endpoint=endpoint)
+                ),
+                sampler=ALWAYS_ON
+            )
+        )
+    else:
+        trace.set_tracer_provider(TracerProvider())
+
+    # Note: we would like to create a synchronous gauge to report the number of datasets within each repo.
+    # Unfortunately the OpenTelemetry Python SDK does not support this yet. We could try to work around with
+    # an observable gauge, but this is far from ideal.
+    #
+    # Initialize OpenTelemetry for Metrics to Console
+    # metrics.set_meter_provider(
+    #     MeterProvider(metrics_readers=[PeriodicExportingMetricReader(ConsoleMetricExporter())])
+    # )
+    # otel_meter = metrics.get_meter("FAIRagro.middleware.meter")
 
 def make_path_absolute(path):
     if path and not os.path.isabs(path):
@@ -65,18 +73,17 @@ def make_path_absolute(path):
         return os.path.normpath(os.path.join(script_dir, path))
     return path
 
-def get_url(url):
-    r = requests.get(url)
-    # e!DAL returns the HTTP content-type 'text/html' which implies ISO-8859-1 encoding.
-    # Nevertheless UTF-8 encoding is used. This confuses the requests library.
-    # Fortunately the requests library can detect the encoding automatically. But we need to
-    # apply it explicitly.
-    # The correct content-type for e!DAL would be 'text/html; charset=utf-8'.
-    content = r.content.decode(r.apparent_encoding)
-    return content
 
-def extract_sites(sitemap_url):
-    sitemap_xml = get_url(sitemap_url)
+async def get_url(url, session):
+    async with session.get(url) as response:
+        content = await response.read()
+        # Detect the encoding of the content, so we do not need to rely on HTTP content-type
+        # (which used to be wrong for e!DAL)
+        encoding = chardet.detect(content)['encoding']
+        return content.decode(encoding)
+
+async def extract_sites(sitemap_url, session):
+    sitemap_xml = await get_url(sitemap_url, session)
     xml_root = ET.fromstring(sitemap_xml)
     sites = [ url.text for url in xml_root.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}loc' )]
     return sites
@@ -89,7 +96,6 @@ def extract_jsonld(html):
     
 def extract_schema_org_jsonld(html, url):
     base_url = get_base_url(html, url)
-
     # only scrape JSON-LD data.
     # e!DAL also offers DublinCore and RDFa, but this does not add useful information.
     # (RDFa is not related to metadata at all, probably it's added by the HTML renderer.
@@ -100,50 +106,48 @@ def extract_schema_org_jsonld(html, url):
                                syntaxes=['json-ld'])
     return metadata['json-ld']
 
-@otel_tracer.start_as_current_span("extract_schema_org_or_issue_error")
-def extract_schema_org_or_log_error(url):
-    otel_span = trace.get_current_span()
-    otel_span.set_attribute(SpanAttributes.URL_FULL, url)
-    try:
-        content = get_url(url)
-        metadata = extract_schema_org_jsonld(content, url)
-        return metadata
-    except Exception as e:
-        suspicious_jsonld = ''.join(extract_jsonld(content))
-        otel_span.set_attribute("FAIRagro.middleware.suspicious_jsonld", suspicious_jsonld)
-        otel_span.record_exception(e)
-        otel_span.add_event("Could not extract schema.org meta data in JSON-LD format")
-        return None
+async def extract_schema_org_or_log_error(url, session):
+    with trace.get_tracer(__name__).start_as_current_span("extract_schema_org_or_issue_error") as otel_span:
+        otel_span.set_attribute(SpanAttributes.URL_FULL, url)
+        try:
+            content = await get_url(url, session)
+            metadata = extract_schema_org_jsonld(content, url)
+            return metadata
+        except Exception as e:
+            suspicious_jsonld = ''.join(extract_jsonld(content))
+            otel_span.set_attribute("FAIRagro.middleware.suspicious_jsonld", suspicious_jsonld)
+            otel_span.record_exception(e)
+            msg = "Could not extract schema.org meta data in JSON-LD format"
+            otel_span.add_event(msg)
+            logging.error(f"{msg}, url: {url}, supicius JSON-LD:\n{suspicious_jsonld}")
+            return None
  
-def extract_many_schema_org(urls):
-    for url in urls:
-        metadata = extract_schema_org_or_log_error(url)
-        # metadata might be None, if schema.org parser failed.
-        if metadata:
-            # Note: if metadata is not None, it's a list that may contain several JSON-LD entries.
-            # e!DAL sometimes defines two entries: "@type":"Dataset" and "@type":"Taxon".
-            yield metadata
+async def extract_many_schema_org(urls, session):
+    result = await asyncio.gather(*[ extract_schema_org_or_log_error(url, session) for url in urls ])
+    # metadata might be None, if schema.org parser failed.
+    # If metadata is not None, it's a list that may contain several JSON-LD entries.
+    # e!DAL sometimes defines two entries: "@type":"Dataset" and "@type":"Taxon".
+    return [ metadata for metadata in result if metadata is not None ]
 
-@otel_tracer.start_as_current_span("scrape_repo")
-def scrape_repo_and_commit_to_git(name, sitemap_url, git_repo):
-    otel_span = trace.get_current_span()
-    otel_span.set_attribute("FAIRagro.middleware.repository_name", name)
-    otel_span.set_attribute("FAIRagro.middleware.repository_sitemap_url", sitemap_url)
-    start_timestamp = datetime.datetime.now(pytz.UTC)
-    sites = extract_sites(sitemap_url)
-    metadata = list(extract_many_schema_org(sites))
-    # We should collect some metrics data, but OpenTelemetry does not yet support transmitting
-    # simple synchronous gauge values.
-    # count_sites = len(sites)
-    # count_metadata = len(metadata)
-    result = list(itertools.chain.from_iterable(metadata))
-    path = os.path.join(git_repo.working_dir, f'{name}.json')
-    with open(path, 'w') as f:
-        f.write(json.dumps(result, indent=2))
-    git_repo.index.add([path])
-    formatted_time = start_timestamp.strftime('%Y-%m-%d %H:%M:%S.%f %Z%z')
-    git_repo.index.commit(
-        f"FAIRagro middleware scraper for repo '{name}' with sitemap {sitemap_url}, started at {formatted_time}")
+async def scrape_repo_and_commit_to_git(name, sitemap_url, git_repo, session):
+    with trace.get_tracer(__name__).start_as_current_span("scrape_repo_and_commit_to_git") as otel_span:
+        otel_span.set_attribute("FAIRagro.middleware.repository_name", name)
+        otel_span.set_attribute("FAIRagro.middleware.repository_sitemap_url", sitemap_url)
+        start_timestamp = datetime.datetime.now(pytz.UTC)        
+        sites = await extract_sites(sitemap_url, session)
+        metadata = await extract_many_schema_org(sites, session)
+        # We should collect some metrics data, but OpenTelemetry does not yet support transmitting
+        # simple synchronous gauge values.
+        # count_sites = len(sites)
+        # count_metadata = len(metadata)
+        result = list(itertools.chain.from_iterable(metadata))
+        path = os.path.join(git_repo.working_dir, f'{name}.json')
+        async with aiofiles.open(path, 'w') as f:
+            await f.write(json.dumps(result, indent=2))
+        git_repo.index.add([path])
+        formatted_time = start_timestamp.strftime('%Y-%m-%d %H:%M:%S.%f %Z%z')
+        git_repo.index.commit(
+            f"FAIRagro middleware scraper for repo '{name}' with sitemap {sitemap_url}, started at {formatted_time}")
 
 def make_ssh_key_path(original_path):
     # This is some ugly workaround for git on Windows. In this case git is based on MSYS, so the
@@ -208,16 +212,15 @@ This repository is automatically maintained by the FAIRagro middleware. It store
 
     return repo
 
-@otel_tracer.start_as_current_span("main")
-def main():
 
+async def main():
     try:
         parser = argparse.ArgumentParser(
-            prog = 'schema_scraper',
+            prog = 'fairagro-middleware',
             description= 'Extracts schema.org meta data from research data repositories.',
         )
         parser.add_argument('--config', '-c',
-                            type=pathlib.Path,
+                            type=Path,
                             default='config.yml',
                             help='config file for this tool')
         args = parser.parse_args()
@@ -225,30 +228,36 @@ def main():
         config_path = make_path_absolute(args.config)
         if not os.path.isfile(config_path):
             raise FileNotFoundError(f"Config file {config_path} does not exist.")
-
+        
         # load config
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
 
-        # setup git repo
-        git_repo = setup_git_repo(config['git'])
-
-        # scrape sites
-        git_repo.remotes.origin.pull()
-        for sitemap in config['sitemaps']:
-            scrape_repo_and_commit_to_git(sitemap['name'], sitemap['url'], git_repo)
-        git_repo.remotes.origin.push()
+        setup_opentelemetry(config['opentelemetry'])
     except Exception as e:
-        otel_span = trace.get_current_span()
-        otel_span.record_exception(e)
-        otel_span.set_status(Status(StatusCode.ERROR))
+        logging.exception("An error occured during initialization")
+        sys.exit(1)
+
+    with trace.get_tracer(__name__).start_as_current_span("main") as otel_span:
+        try:
+            # setup git repo
+            git_repo = setup_git_repo(config['git'])
+
+            # scrape sites
+            git_repo.remotes.origin.pull()
+            connection_limit = int(config.get('connection_limit', 100))
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(limit=connection_limit)) as session:
+                for sitemap in config['sitemaps']:
+                    await scrape_repo_and_commit_to_git(
+                        sitemap['name'], sitemap['url'], git_repo, session)
+            git_repo.remotes.origin.push()
+        except Exception as e:
+            otel_span = trace.get_current_span()
+            otel_span.record_exception(e)
+            msg = "Error when scraping repositories"
+            otel_span.add_event(msg)
+            logging.exception(msg)
+            sys.exit(1)
         
 if __name__ == '__main__':
-    main()
-
-
-
-# sites = [
-#     # "https://maps.bonares.de/finder/resources/googleds/datasets/fca18db3-fc1b-4c1c-bb81-afc0dcadc29e.html"
-#     "https://doi.org/10.5447/ipk/2012/10"
-# ]
+    asyncio.run(main())

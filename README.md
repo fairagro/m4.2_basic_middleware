@@ -10,7 +10,7 @@ To setup your environment in Powershell (bash would be nearly identical):
 
 ```powershell
 cd <your local project directory>
-python -m pip install --upgrade pip setuptools wheel
+python -m pip install --upgrade pip pipdeptree setuptools wheel
 python -m venv .venv
 . .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
