@@ -58,6 +58,12 @@ otel_tracer = trace.get_tracer("FAIRagro.middleware.tracer")
 # )
 # otel_meter = metrics.get_meter("FAIRagro.middleware.meter")
 
+def make_path_absolute(path):
+    if path and not os.path.isabs(path):
+        # we assume that relative paths are relative to the script directory, not to the current working directory
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        return os.path.normpath(os.path.join(script_dir, path))
+    return path
 
 def get_url(url):
     r = requests.get(url)
@@ -152,17 +158,12 @@ def make_ssh_key_path(original_path):
     return PurePosixPath(*parts)
 
 def setup_git_repo(repo_info):
-    script_dir = os.path.dirname(os.path.realpath(__file__))
-
-    # find out a local path for the repo
-    local_path = repo_info['local_path']
-    if not os.path.isabs(local_path):
-        local_path = os.path.normpath(os.path.join(script_dir, local_path))
+    # find out local repo path
+    local_path = make_path_absolute(repo_info['local_path'])
 
     # find the ssh key and use it
-    ssh_key_path = repo_info.get('ssh_key_path')
-    if ssh_key_path and not os.path.isabs(ssh_key_path):
-        ssh_key_path = os.path.normpath(os.path.join(script_dir, ssh_key_path))
+    ssh_key_path = make_path_absolute(repo_info.get('ssh_key_path'))
+    if ssh_key_path:
         # Note: actutally /dev/null is OS-dependent. There is os.devnull to cope with this.
         # But for my git setup on Windwos, /dev/null is the correct value -- probably because
         # it uses an MSYS-based ssh. 
@@ -210,22 +211,23 @@ This repository is automatically maintained by the FAIRagro middleware. It store
 @otel_tracer.start_as_current_span("main")
 def main():
 
-    parser = argparse.ArgumentParser(
-        prog = 'schema_scraper',
-        description= 'Extracts schema.org meta data from research data repositories.',
-    )
-    parser.add_argument('--config', '-c',
-                        type=pathlib.Path,
-                        default='config.yml',
-                        help='config file that defines repositories to scrape')
-    args = parser.parse_args()
-
     try:
-        if not os.path.isfile(args.config):
-            raise FileNotFoundError(f"Config file {args.config} does not exist.")
+        parser = argparse.ArgumentParser(
+            prog = 'schema_scraper',
+            description= 'Extracts schema.org meta data from research data repositories.',
+        )
+        parser.add_argument('--config', '-c',
+                            type=pathlib.Path,
+                            default='config.yml',
+                            help='config file for this tool')
+        args = parser.parse_args()
+
+        config_path = make_path_absolute(args.config)
+        if not os.path.isfile(config_path):
+            raise FileNotFoundError(f"Config file {config_path} does not exist.")
 
         # load config
-        with open(args.config, 'r') as f:
+        with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
 
         # setup git repo
