@@ -9,8 +9,8 @@ import yaml
 import itertools
 import extruct
 import git
-from w3lib.html import get_base_url
-import xml.etree.ElementTree as ET
+import w3lib.html
+import xml.etree.ElementTree
 from bs4 import BeautifulSoup
 import json
 import logging
@@ -84,7 +84,7 @@ async def get_url(url, session):
 
 async def extract_sites(sitemap_url, session):
     sitemap_xml = await get_url(sitemap_url, session)
-    xml_root = ET.fromstring(sitemap_xml)
+    xml_root = xml.etree.ElementTree.fromstring(sitemap_xml)
     sites = [ url.text for url in xml_root.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}loc' )]
     return sites
 
@@ -95,7 +95,7 @@ def extract_jsonld(html):
     return result
     
 def extract_schema_org_jsonld(html, url):
-    base_url = get_base_url(html, url)
+    base_url = w3lib.html.get_base_url(html, url)
     # only scrape JSON-LD data.
     # e!DAL also offers DublinCore and RDFa, but this does not add useful information.
     # (RDFa is not related to metadata at all, probably it's added by the HTML renderer.
@@ -129,7 +129,7 @@ async def extract_many_schema_org(urls, session):
     # e!DAL sometimes defines two entries: "@type":"Dataset" and "@type":"Taxon".
     return [ metadata for metadata in result if metadata is not None ]
 
-async def scrape_repo_and_commit_to_git(name, sitemap_url, git_repo, session):
+async def scrape_repo_and_write_to_file(name, sitemap_url, session, folder_path):
     with trace.get_tracer(__name__).start_as_current_span("scrape_repo_and_commit_to_git") as otel_span:
         otel_span.set_attribute("FAIRagro.middleware.repository_name", name)
         otel_span.set_attribute("FAIRagro.middleware.repository_sitemap_url", sitemap_url)
@@ -141,13 +141,16 @@ async def scrape_repo_and_commit_to_git(name, sitemap_url, git_repo, session):
         # count_sites = len(sites)
         # count_metadata = len(metadata)
         result = list(itertools.chain.from_iterable(metadata))
-        path = os.path.join(git_repo.working_dir, f'{name}.json')
+        path = os.path.join(folder_path, f'{name}.json')
         async with aiofiles.open(path, 'w') as f:
             await f.write(json.dumps(result, indent=2))
-        git_repo.index.add([path])
-        formatted_time = start_timestamp.strftime('%Y-%m-%d %H:%M:%S.%f %Z%z')
-        git_repo.index.commit(
-            f"FAIRagro middleware scraper for repo '{name}' with sitemap {sitemap_url}, started at {formatted_time}")
+        return path, start_timestamp
+
+def commit_to_git(name, sitemap_url, git_repo, path, starttime):
+    git_repo.index.add([path])
+    formatted_time = starttime.strftime('%Y-%m-%d %H:%M:%S.%f %Z%z')
+    git_repo.index.commit(
+        f"FAIRagro middleware scraper for repo '{name}' with sitemap {sitemap_url}, started at {formatted_time}")
 
 def make_ssh_key_path(original_path):
     # This is some ugly workaround for git on Windows. In this case git is based on MSYS, so the
@@ -222,7 +225,13 @@ async def main():
         parser.add_argument('--config', '-c',
                             type=Path,
                             default='config.yml',
-                            help='config file for this tool')
+                            help='Config file for this tool.')
+        parser.add_argument('--git',
+                            action=argparse.BooleanOptionalAction,
+                            default=True,
+                            help='Specify this flag to enabled or disable git interactions.'
+                                    'If disabled the outout files will nevrtheless be written to git.local_path '
+                                    'as specified within the config file.'),
         args = parser.parse_args()
 
         config_path = make_path_absolute(args.config)
@@ -240,17 +249,28 @@ async def main():
 
     with trace.get_tracer(__name__).start_as_current_span("main") as otel_span:
         try:
-            # setup git repo
-            git_repo = setup_git_repo(config['git'])
+            # setup git repo if desired
+            if args.git:
+                git_repo = setup_git_repo(config['git'])
+                local_path = git_repo.working_dir
+                git_repo.remotes.origin.pull()
+            else:
+                git_repo = None
+                local_path = make_path_absolute(config['git']['local_path'])
+                os.makedirs(local_path, exist_ok=True)
 
             # scrape sites
-            git_repo.remotes.origin.pull()
             connection_limit = int(config.get('connection_limit', 100))
             async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(limit=connection_limit)) as session:
                 for sitemap in config['sitemaps']:
-                    await scrape_repo_and_commit_to_git(
-                        sitemap['name'], sitemap['url'], git_repo, session)
-            git_repo.remotes.origin.push()
+                    name = sitemap['name']
+                    url = sitemap['url']
+                    path, starttime = await scrape_repo_and_write_to_file(name, url, session, local_path)
+                    if git_repo:
+                        commit_to_git(name, url, git_repo, path, starttime)
+            
+            if git_repo:
+                git_repo.remotes.origin.push()
         except Exception as e:
             otel_span = trace.get_current_span()
             otel_span.record_exception(e)
