@@ -31,6 +31,15 @@ from sitemap_parser_xml import SitemapParserXml
 from metadata_extractor_embedded_jsonld import MetadataExtractorEmbeddedJsonld
 
 
+sitemap_parsers = {
+    'xml': SitemapParserXml
+}
+
+metadata_extractors = {
+    'embedded_jsonld': MetadataExtractorEmbeddedJsonld
+}
+
+
 def setup_opentelemetry(otlp_config):
     # Initialize some automatic OpenTelemetry instrumentations.
     # Actually we only use aiohttp, but requests and urllib are indirect dependencies.
@@ -246,8 +255,8 @@ async def main():
                     name = sitemap_info['name']
                     url = sitemap_info['url']
                     sitemap = await session.get_decoded_url(url)
-                    parser = SitemapParserXml(sitemap)
-                    extractor = MetadataExtractorEmbeddedJsonld()
+                    parser = sitemap_parsers[sitemap_info['sitemap']](sitemap)
+                    extractor = metadata_extractors[sitemap_info['metadata']]()
                     path, starttime = await scrape_repo_and_write_to_file(name, url, session, local_path, parser, extractor)
                     if git_repo:
                         commit_to_git(name, url, git_repo, path, starttime)

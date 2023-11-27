@@ -1,8 +1,12 @@
 sitemaps:
   - name: bonares
     url: https://maps.bonares.de/finder/resources/googleds/sitemap.xml
+    sitemap: xml
+    metadata: embedded_jsonld
   - name: edal
     url: https://doi.ipk-gatersleben.de/sitemap.xml
+    sitemap: xml
+    metadata: embedded_jsonld
 
 http_client:
   connection_limit: 100
