@@ -76,6 +76,7 @@ def make_path_absolute(path):
 
 async def get_url(url, session):
     async with session.get(url) as response:
+        response.raise_for_status()
         content = await response.read()
         # Detect the encoding of the content, so we do not need to rely on HTTP content-type
         # (which used to be wrong for e!DAL)
@@ -111,6 +112,13 @@ async def extract_schema_org_or_log_error(url, session):
         otel_span.set_attribute(SpanAttributes.URL_FULL, url)
         try:
             content = await get_url(url, session)
+        except Exception as e:
+            otel_span.record_exception(e)
+            msg = "Error downloading from URL"
+            otel_span.add_event(msg)
+            logging.error(f"{msg}, url: {url}")
+            return None
+        try:
             metadata = extract_schema_org_jsonld(content, url)
             return metadata
         except Exception as e:
@@ -260,8 +268,14 @@ async def main():
                 os.makedirs(local_path, exist_ok=True)
 
             # scrape sites
-            connection_limit = int(config.get('connection_limit', 100))
-            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(limit=connection_limit)) as session:
+            http_config = config['http_client']
+            async with aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(
+                    limit=int(http_config['connection_limit'])),
+                timeout=aiohttp.ClientTimeout(
+                    total=None,     # 'total' also takes into account connection waiting for a free connection from the pool
+                    sock_read=int(http_config['receive_timeout']),
+                    sock_connect=int(http_config['connect_timeout']))) as session:
                 for sitemap in config['sitemaps']:
                     name = sitemap['name']
                     url = sitemap['url']
