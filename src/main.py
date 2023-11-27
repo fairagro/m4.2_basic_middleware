@@ -6,8 +6,6 @@ import argparse
 import yaml
 import itertools
 import git
-
-from bs4 import BeautifulSoup
 import json
 import logging
 from opentelemetry import trace #, metrics
@@ -84,12 +82,6 @@ def make_path_absolute(path):
         return os.path.normpath(os.path.join(script_dir, path))
     return path
 
-def extract_jsonld(html):
-    soup = BeautifulSoup(html, 'html.parser')
-    json_ld = soup.find_all('script', type='application/ld+json')
-    result = [ js.text for js in json_ld ]
-    return result
-
 async def extract_schema_org_or_log_error(url, session, extractor):
     with trace.get_tracer(__name__).start_as_current_span("extract_schema_org_or_issue_error") as otel_span:
         otel_span.set_attribute(SpanAttributes.URL_FULL, url)
@@ -105,7 +97,7 @@ async def extract_schema_org_or_log_error(url, session, extractor):
             metadata = extractor.metadata(content, url)
             return metadata
         except Exception as e:
-            suspicious_jsonld = ''.join(extract_jsonld(content))
+            suspicious_jsonld = ''.join(extractor.raw_metadata(content))
             otel_span.set_attribute("FAIRagro.middleware.suspicious_jsonld", suspicious_jsonld)
             otel_span.record_exception(e)
             msg = "Could not extract schema.org meta data in JSON-LD format"

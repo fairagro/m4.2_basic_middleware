@@ -4,13 +4,6 @@ from typing import Dict, List
 
 class MetadataExtractor(ABC):
 
-    def __init__(self) -> None:
-        """
-        Initializes an instance of the abstract base class of an RDI repository meta data extractor.
-
-        """
-        pass
-
     @abstractmethod
     def metadata(self, content: str, url: str) -> List[Dict]:
         """
@@ -25,7 +18,25 @@ class MetadataExtractor(ABC):
 
         Returns
         -------
-            list(dict)
+            List[Dict]
                 A list of dictionaries containing the extracted metadata.
+        """
+        pass
+
+    @abstractmethod
+    def raw_metadata(self, content: str) -> List[str]:
+        """
+        Extracts a list of unparsed metadata. This may be useful for debugging in case
+        the parsing failed.
+
+        Arguments
+        ---------
+            content : str
+                The dataset content to extract the metadata from.
+
+        Returns
+        -------
+            List[str]
+                A list of strings containing the unprased metadata.
         """
         pass
