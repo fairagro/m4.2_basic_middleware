@@ -6,8 +6,8 @@ sitemaps:
 
 http_client:
   connection_limit: 100
-  receive_timeout: 60
-  connect_timeout: 5
+  receive_timeout: 120
+  connect_timeout: 10
 
 # Note on paths: relative paths refer to the directory the middleware script resides in.
 # You can omit the ssh_key_path if you have a local git setup with your personal key.

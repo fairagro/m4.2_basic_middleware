@@ -1,16 +1,12 @@
 import asyncio, aiofiles
-import aiohttp
-import chardet
 import os, sys
 from pathlib import Path, PurePosixPath
 import datetime, pytz
 import argparse
 import yaml
 import itertools
-import extruct
 import git
-import w3lib.html
-import xml.etree.ElementTree
+
 from bs4 import BeautifulSoup
 import json
 import logging
@@ -29,6 +25,10 @@ from opentelemetry.semconv.trace import SpanAttributes
 import opentelemetry.instrumentation.requests
 import opentelemetry.instrumentation.urllib
 import opentelemetry.instrumentation.aiohttp_client
+
+from http_session import HttpSession, HttpSessionConfig
+from sitemap_parser_xml import SitemapParserXml
+from metadata_extractor_embedded_jsonld import MetadataExtractorEmbeddedJsonld
 
 
 def setup_opentelemetry(otlp_config):
@@ -73,45 +73,17 @@ def make_path_absolute(path):
         return os.path.normpath(os.path.join(script_dir, path))
     return path
 
-
-async def get_url(url, session):
-    async with session.get(url) as response:
-        response.raise_for_status()
-        content = await response.read()
-        # Detect the encoding of the content, so we do not need to rely on HTTP content-type
-        # (which used to be wrong for e!DAL)
-        encoding = chardet.detect(content)['encoding']
-        return content.decode(encoding)
-
-async def extract_sites(sitemap_url, session):
-    sitemap_xml = await get_url(sitemap_url, session)
-    xml_root = xml.etree.ElementTree.fromstring(sitemap_xml)
-    sites = [ url.text for url in xml_root.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}loc' )]
-    return sites
-
 def extract_jsonld(html):
     soup = BeautifulSoup(html, 'html.parser')
     json_ld = soup.find_all('script', type='application/ld+json')
     result = [ js.text for js in json_ld ]
     return result
-    
-def extract_schema_org_jsonld(html, url):
-    base_url = w3lib.html.get_base_url(html, url)
-    # only scrape JSON-LD data.
-    # e!DAL also offers DublinCore and RDFa, but this does not add useful information.
-    # (RDFa is not related to metadata at all, probably it's added by the HTML renderer.
-    # DublinCore just reflects the JSON-LD data, but has less capabilities.)
-    metadata = extruct.extract(html, 
-                               base_url=base_url,
-                               uniform=True,
-                               syntaxes=['json-ld'])
-    return metadata['json-ld']
 
-async def extract_schema_org_or_log_error(url, session):
+async def extract_schema_org_or_log_error(url, session, extractor):
     with trace.get_tracer(__name__).start_as_current_span("extract_schema_org_or_issue_error") as otel_span:
         otel_span.set_attribute(SpanAttributes.URL_FULL, url)
         try:
-            content = await get_url(url, session)
+            content = await session.get_decoded_url(url)
         except Exception as e:
             otel_span.record_exception(e)
             msg = "Error downloading from URL"
@@ -119,7 +91,7 @@ async def extract_schema_org_or_log_error(url, session):
             logging.error(f"{msg}, url: {url}")
             return None
         try:
-            metadata = extract_schema_org_jsonld(content, url)
+            metadata = extractor.metadata(content, url)
             return metadata
         except Exception as e:
             suspicious_jsonld = ''.join(extract_jsonld(content))
@@ -130,20 +102,20 @@ async def extract_schema_org_or_log_error(url, session):
             logging.error(f"{msg}, url: {url}, supicius JSON-LD:\n{suspicious_jsonld}")
             return None
  
-async def extract_many_schema_org(urls, session):
-    result = await asyncio.gather(*[ extract_schema_org_or_log_error(url, session) for url in urls ])
+async def extract_many_schema_org(urls, session, extractor):
+    result = await asyncio.gather(*[ extract_schema_org_or_log_error(url, session, extractor) for url in urls ])
     # metadata might be None, if schema.org parser failed.
     # If metadata is not None, it's a list that may contain several JSON-LD entries.
     # e!DAL sometimes defines two entries: "@type":"Dataset" and "@type":"Taxon".
     return [ metadata for metadata in result if metadata is not None ]
 
-async def scrape_repo_and_write_to_file(name, sitemap_url, session, folder_path):
+async def scrape_repo_and_write_to_file(name, sitemap_url, session, folder_path, parser, extractor):
     with trace.get_tracer(__name__).start_as_current_span("scrape_repo_and_commit_to_git") as otel_span:
         otel_span.set_attribute("FAIRagro.middleware.repository_name", name)
         otel_span.set_attribute("FAIRagro.middleware.repository_sitemap_url", sitemap_url)
         start_timestamp = datetime.datetime.now(pytz.UTC)        
-        sites = await extract_sites(sitemap_url, session)
-        metadata = await extract_many_schema_org(sites, session)
+        sites = parser.datasets()
+        metadata = await extract_many_schema_org(sites, session, extractor)
         # We should collect some metrics data, but OpenTelemetry does not yet support transmitting
         # simple synchronous gauge values.
         # count_sites = len(sites)
@@ -268,18 +240,15 @@ async def main():
                 os.makedirs(local_path, exist_ok=True)
 
             # scrape sites
-            http_config = config['http_client']
-            async with aiohttp.ClientSession(
-                connector=aiohttp.TCPConnector(
-                    limit=int(http_config['connection_limit'])),
-                timeout=aiohttp.ClientTimeout(
-                    total=None,     # 'total' also takes into account connection waiting for a free connection from the pool
-                    sock_read=int(http_config['receive_timeout']),
-                    sock_connect=int(http_config['connect_timeout']))) as session:
-                for sitemap in config['sitemaps']:
-                    name = sitemap['name']
-                    url = sitemap['url']
-                    path, starttime = await scrape_repo_and_write_to_file(name, url, session, local_path)
+            http_config = HttpSessionConfig(**config['http_client'])
+            async with HttpSession(http_config) as session:
+                for sitemap_info in config['sitemaps']:
+                    name = sitemap_info['name']
+                    url = sitemap_info['url']
+                    sitemap = await session.get_decoded_url(url)
+                    parser = SitemapParserXml(sitemap)
+                    extractor = MetadataExtractorEmbeddedJsonld()
+                    path, starttime = await scrape_repo_and_write_to_file(name, url, session, local_path, parser, extractor)
                     if git_repo:
                         commit_to_git(name, url, git_repo, path, starttime)
             

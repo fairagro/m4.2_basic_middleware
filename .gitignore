@@ -1,3 +1,5 @@
 .venv
+.vscode
 ssh_key.pem
 output
+**/__pycache__
