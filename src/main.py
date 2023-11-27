@@ -29,6 +29,7 @@ import opentelemetry.instrumentation.aiohttp_client
 from http_session import HttpSession, HttpSessionConfig
 from sitemap_parser_xml import SitemapParserXml
 from metadata_extractor_embedded_jsonld import MetadataExtractorEmbeddedJsonld
+from metadata_extractor_jsonld import MetadataExtractorJsonld
 
 
 sitemap_parsers = {
@@ -36,7 +37,8 @@ sitemap_parsers = {
 }
 
 metadata_extractors = {
-    'embedded_jsonld': MetadataExtractorEmbeddedJsonld
+    'embedded_jsonld': MetadataExtractorEmbeddedJsonld,
+    'jsonld': MetadataExtractorJsonld
 }
 
 
