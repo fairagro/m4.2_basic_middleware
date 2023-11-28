@@ -125,8 +125,8 @@ async def scrape_repo_and_write_to_file(name, sitemap_url, session, folder_path,
         # count_metadata = len(metadata)
         result = list(itertools.chain.from_iterable(metadata))
         path = os.path.join(folder_path, f'{name}.json')
-        async with aiofiles.open(path, 'w') as f:
-            await f.write(json.dumps(result, indent=2))
+        async with aiofiles.open(path, 'w', encoding='utf-8') as f:
+            await f.write(json.dumps(result, indent=2, ensure_ascii=False))
         return path, start_timestamp
 
 def commit_to_git(name, sitemap_url, git_repo, path, starttime):
