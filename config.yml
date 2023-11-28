@@ -13,7 +13,7 @@ sitemaps:
     metadata: embedded_jsonld
 
 http_client:
-  connection_limit: 20
+  connection_limit: 10
   receive_timeout: 120
   connect_timeout: 10
 

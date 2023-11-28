@@ -7,6 +7,7 @@ import json
 
 BASE_URL = 'https://www.openagrar.de/receive/'
 
+
 class SitemapParserOpenAgrar(SitemapParser):
 
     def __init__(self, content: str) -> None:
@@ -30,13 +31,7 @@ class SitemapParserOpenAgrar(SitemapParser):
             str
                 A string with the URL to the next dataset.
         """
-        mods_ids_list = self.mods_id_extractor()
-        for mid in mods_ids_list:
-            yield f"{BASE_URL}+{mid}"
-
-    def mods_id_extractor(self):
-        sitemap_url = 'https://www.openagrar.de/servlets/solr/select?core=main&q=category.top%3A%22mir_genres%3Aresearch_data%22+AND+objectType%3Amods+AND+category.top%3A%22state%3Apublished%22&rows=300&fl=id%2Cmods.identifier&wt=json&XSL.Style=xml'
-        response = requests.get(sitemap_url)
-        response_json = json.loads(response.text)
-        mods_ids = [doc['id'] for doc in response_json['response']['docs']]
-        return mods_ids
+        json_objs = json.loads(self._content)
+        mods_ids = [doc['id'] for doc in json_objs['response']['docs']]
+        for mid in mods_ids:
+            yield f"{BASE_URL}{mid}"
