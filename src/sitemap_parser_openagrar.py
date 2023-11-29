@@ -1,8 +1,4 @@
 from sitemap_parser import SitemapParser
-import requests
-from w3lib.html import get_base_url
-import xml.etree.ElementTree as ET
-from bs4 import BeautifulSoup
 import json
 
 BASE_URL = 'https://www.openagrar.de/receive/'

@@ -1,12 +1,12 @@
 sitemaps:
-  # - name: bonares
-  #   url: https://maps.bonares.de/finder/resources/googleds/sitemap.xml
-  #   sitemap: xml
-  #   metadata: embedded_jsonld
-  # - name: edal
-  #   url: https://doi.ipk-gatersleben.de/sitemap.xml
-  #   sitemap: xml
-  #   metadata: embedded_jsonld
+  - name: bonares
+    url: https://maps.bonares.de/finder/resources/googleds/sitemap.xml
+    sitemap: xml
+    metadata: embedded_jsonld
+  - name: edal
+    url: https://doi.ipk-gatersleben.de/sitemap.xml
+    sitemap: xml
+    metadata: embedded_jsonld
   - name: openagrar
     url: "https://www.openagrar.de/servlets/solr/select?core=main&q=category.top%3A%22mir_genres%3Aresearch_data%22+AND+objectType%3Amods+AND+category.top%3A%22state%3Apublished%22&rows=300&fl=id%2Cmods.identifier&wt=json&XSL.Style=xml"
     sitemap: no_xml
@@ -22,8 +22,8 @@ http_client:
 # If branch is omitted, the main branch is used
 git:
   repo_url: git@github.com:fairagro/middleware_repo.git
-  branch: main
-  ssh_key_path: ssh_key.pem
+  #branch: main
+  #ssh_key_path: ssh_key.pem
   local_path: output
   user_name: "FAIRagro middleware"
   user_email: "middleware@fairagro.net"
