@@ -4,7 +4,6 @@ from pathlib import Path, PurePosixPath
 import datetime, pytz
 import argparse
 import yaml
-import itertools
 import git
 import json
 import logging
@@ -19,27 +18,14 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExport
 #     ConsoleMetricExporter,
 #     PeriodicExportingMetricReader,
 # )
-from opentelemetry.semconv.trace import SpanAttributes
 import opentelemetry.instrumentation.requests
 import opentelemetry.instrumentation.urllib
 import opentelemetry.instrumentation.aiohttp_client
 
 from http_session import HttpSession, HttpSessionConfig
-from sitemap_parser_xml import SitemapParserXml
-from metadata_extractor_embedded_jsonld import MetadataExtractorEmbeddedJsonld
-from metadata_extractor_jsonld import MetadataExtractorJsonld
-from sitemap_parser_openagrar import SitemapParserOpenAgrar
-
-
-sitemap_parsers = {
-    'xml': SitemapParserXml,
-    'no_xml': SitemapParserOpenAgrar 
-}
-
-metadata_extractors = {
-    'embedded_jsonld': MetadataExtractorEmbeddedJsonld,
-    'jsonld': MetadataExtractorJsonld
-}
+from sitemap_parser import SitemapParser
+from metadata_extractor import MetadataExtractor
+from metadata_scraper import MetadataScraper
 
 
 def setup_opentelemetry(otlp_config):
@@ -84,52 +70,18 @@ def make_path_absolute(path):
         return os.path.normpath(os.path.join(script_dir, path))
     return path
 
-async def extract_schema_org_or_log_error(url, session, extractor):
-    with trace.get_tracer(__name__).start_as_current_span("extract_schema_org_or_issue_error") as otel_span:
-        otel_span.set_attribute(SpanAttributes.URL_FULL, url)
-        try:
-            content = await session.get_decoded_url(url)
-        except Exception as e:
-            otel_span.record_exception(e)
-            msg = "Error downloading from URL"
-            otel_span.add_event(msg)
-            logging.error(f"{msg}, url: {url}")
-            return None
-        try:
-            metadata = extractor.metadata(content, url)
-            return metadata
-        except Exception as e:
-            suspicious_jsonld = ''.join(extractor.raw_metadata(content))
-            otel_span.set_attribute("FAIRagro.middleware.suspicious_jsonld", suspicious_jsonld)
-            otel_span.record_exception(e)
-            msg = "Could not extract schema.org meta data in JSON-LD format"
-            otel_span.add_event(msg)
-            logging.error(f"{msg}, url: {url}, supicius JSON-LD:\n{suspicious_jsonld}")
-            return None
- 
-async def extract_many_schema_org(urls, session, extractor):
-    result = await asyncio.gather(*[ extract_schema_org_or_log_error(url, session, extractor) for url in urls ])
-    # metadata might be None, if schema.org parser failed.
-    # If metadata is not None, it's a list that may contain several JSON-LD entries.
-    # e!DAL sometimes defines two entries: "@type":"Dataset" and "@type":"Taxon".
-    return [ metadata for metadata in result if metadata is not None ]
-
 async def scrape_repo_and_write_to_file(name, sitemap_url, session, folder_path, parser, extractor):
-    with trace.get_tracer(__name__).start_as_current_span("scrape_repo_and_commit_to_git") as otel_span:
-        otel_span.set_attribute("FAIRagro.middleware.repository_name", name)
-        otel_span.set_attribute("FAIRagro.middleware.repository_sitemap_url", sitemap_url)
-        start_timestamp = datetime.datetime.now(pytz.UTC)        
-        sites = parser.datasets()
-        metadata = await extract_many_schema_org(sites, session, extractor)
-        # We should collect some metrics data, but OpenTelemetry does not yet support transmitting
-        # simple synchronous gauge values.
-        # count_sites = len(sites)
-        # count_metadata = len(metadata)
-        result = list(itertools.chain.from_iterable(metadata))
-        path = os.path.join(folder_path, f'{name}.json')
-        async with aiofiles.open(path, 'w', encoding='utf-8') as f:
-            await f.write(json.dumps(result, indent=2, ensure_ascii=False))
-        return path, start_timestamp
+    start_timestamp = datetime.datetime.now(pytz.UTC)        
+    scraper = MetadataScraper(session, parser, extractor)
+    metadata = await scraper.scrape_repo(name, sitemap_url)
+    # We should collect some metrics data, but OpenTelemetry does not yet support transmitting
+    # simple synchronous gauge values.
+    # count_sites = len(sites)
+    # count_metadata = len(metadata)
+    path = os.path.join(folder_path, f'{name}.json')
+    async with aiofiles.open(path, 'w', encoding='utf-8') as f:
+        await f.write(json.dumps(metadata, indent=2, ensure_ascii=False))
+    return path, start_timestamp
 
 def commit_to_git(name, sitemap_url, git_repo, path, starttime):
     git_repo.index.add([path])
@@ -250,9 +202,8 @@ async def main():
                 for sitemap_info in config['sitemaps']:
                     name = sitemap_info['name']
                     url = sitemap_info['url']
-                    sitemap = await session.get_decoded_url(url)
-                    parser = sitemap_parsers[sitemap_info['sitemap']](sitemap)
-                    extractor = metadata_extractors[sitemap_info['metadata']]()
+                    parser = SitemapParser.create_instance(sitemap_info['sitemap'])
+                    extractor = MetadataExtractor.create_instance(sitemap_info['metadata'])
                     path, starttime = await scrape_repo_and_write_to_file(name, url, session, local_path, parser, extractor)
                     if git_repo:
                         commit_to_git(name, url, git_repo, path, starttime)
