@@ -10,7 +10,7 @@ class MetadataExtractorEmbeddedJsonld(MetadataExtractor):
 
     def metadata(self, content: str, url: str) -> List[Dict]:
         """
-        Extracts embedded JSON-LD metadata from the given HTML.
+        Extracts embedded JSON-LD metadata from the given HTML content.
 
         Arguments
         ---------
@@ -28,7 +28,7 @@ class MetadataExtractorEmbeddedJsonld(MetadataExtractor):
         metadata = extract(content, base_url=base_url, uniform=True, syntaxes=['json-ld'])
         return metadata['json-ld']
     
-    def raw_metadata(self, content):
+    def raw_metadata(self, content: str) -> List[str]:
         """
         Extracts a list of unparsed JSON-LD content from the HTML. This may be useful for
         debugging in case the parsing failed.
@@ -47,3 +47,6 @@ class MetadataExtractorEmbeddedJsonld(MetadataExtractor):
         json_ld = soup.find_all('script', type='application/ld+json')
         metadata = [ js.text for js in json_ld ]
         return metadata
+    
+
+MetadataExtractor._register_implementation('embedded_jsonld', MetadataExtractorEmbeddedJsonld)

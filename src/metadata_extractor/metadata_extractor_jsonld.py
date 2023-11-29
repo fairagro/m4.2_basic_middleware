@@ -28,7 +28,7 @@ class MetadataExtractorJsonld(MetadataExtractor):
             return [metadata]
         return metadata
     
-    def raw_metadata(self, content):
+    def raw_metadata(self, content: str) -> List[str]:
         """
         Just returns the given JSON-LD, wrapped into an array.
 
@@ -43,3 +43,6 @@ class MetadataExtractorJsonld(MetadataExtractor):
                 A one-element array contains the JSON-LD string.
         """
         return [content]
+
+
+MetadataExtractor._register_implementation('jsonld', MetadataExtractorJsonld)
