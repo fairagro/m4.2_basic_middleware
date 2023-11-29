@@ -26,4 +26,4 @@ class SitemapParserOpenAgrar(SitemapParser):
             yield f"{BASE_URL}{mid}"
 
 
-SitemapParser._register_implementation("openagrar", SitemapParser)
+SitemapParser._register_implementation("openagrar", SitemapParserOpenAgrar)
