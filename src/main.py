@@ -28,10 +28,12 @@ from http_session import HttpSession, HttpSessionConfig
 from sitemap_parser_xml import SitemapParserXml
 from metadata_extractor_embedded_jsonld import MetadataExtractorEmbeddedJsonld
 from metadata_extractor_jsonld import MetadataExtractorJsonld
+from sitemap_parser_openagrar import SitemapParserOpenAgrar
 
 
 sitemap_parsers = {
-    'xml': SitemapParserXml
+    'xml': SitemapParserXml,
+    'no_xml': SitemapParserOpenAgrar 
 }
 
 metadata_extractors = {

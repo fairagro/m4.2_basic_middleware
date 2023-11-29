@@ -3,3 +3,4 @@
 ssh_key.pem
 output
 **/__pycache__
+scrap_repo_test.ipynb
