@@ -22,10 +22,8 @@ import opentelemetry.instrumentation.requests
 import opentelemetry.instrumentation.urllib
 import opentelemetry.instrumentation.aiohttp_client
 
-from http_session import HttpSession, HttpSessionConfig
-from sitemap_parser import SitemapParser
-from metadata_extractor import MetadataExtractor
-from metadata_scraper import MetadataScraper
+from http_session import HttpSessionConfig
+from metadata_scraper import MetadataScraper, MetadataScraperConfig
 
 
 def setup_opentelemetry(otlp_config):
@@ -70,15 +68,15 @@ def make_path_absolute(path):
         return os.path.normpath(os.path.join(script_dir, path))
     return path
 
-async def scrape_repo_and_write_to_file(name, sitemap_url, session, folder_path, parser, extractor):
+async def scrape_repo_and_write_to_file(folder_path, scraper_config, http_config):
     start_timestamp = datetime.datetime.now(pytz.UTC)        
-    scraper = MetadataScraper(session, parser, extractor)
-    metadata = await scraper.scrape_repo(name, sitemap_url)
+    scraper = MetadataScraper(scraper_config, http_config)
+    metadata = await scraper.scrape_repo()
     # We should collect some metrics data, but OpenTelemetry does not yet support transmitting
     # simple synchronous gauge values.
     # count_sites = len(sites)
     # count_metadata = len(metadata)
-    path = os.path.join(folder_path, f'{name}.json')
+    path = os.path.join(folder_path, f"{scraper_config.name}.json")
     async with aiofiles.open(path, 'w', encoding='utf-8') as f:
         await f.write(json.dumps(metadata, indent=2, ensure_ascii=False))
     return path, start_timestamp
@@ -197,16 +195,12 @@ async def main():
                 os.makedirs(local_path, exist_ok=True)
 
             # scrape sites
-            http_config = HttpSessionConfig(**config['http_client'])
-            async with HttpSession(http_config) as session:
-                for sitemap_info in config['sitemaps']:
-                    name = sitemap_info['name']
-                    url = sitemap_info['url']
-                    parser = SitemapParser.create_instance(sitemap_info['sitemap'])
-                    extractor = MetadataExtractor.create_instance(sitemap_info['metadata'])
-                    path, starttime = await scrape_repo_and_write_to_file(name, url, session, local_path, parser, extractor)
-                    if git_repo:
-                        commit_to_git(name, url, git_repo, path, starttime)
+            for sitemap in config['sitemaps']:
+                scraper_config = MetadataScraperConfig(**sitemap)
+                path, starttime = await scrape_repo_and_write_to_file(
+                    local_path, scraper_config, config['http_client'])
+                if git_repo:
+                    commit_to_git(scraper_config['name'], scraper_config['url'], git_repo, path, starttime)
             
             if git_repo:
                 git_repo.remotes.origin.push()

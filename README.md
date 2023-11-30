@@ -4,7 +4,7 @@ This is a first implementation of the FAIRagro middleware. It scrapes schema.org
 
 ## Usage ##
 
-To use this script, you need to have a current Python version installed (at least Python major version 3, of course -- the mininal minor version is unknown).
+To use this script, you need to have a Python version 3.11 installed (we're using the type hint `Annotated[Optional[...]]` which only works as expcted with Python 3.11)
 
 To setup your environment in Powershell (bash would be nearly identical):
 
