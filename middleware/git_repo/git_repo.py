@@ -65,7 +65,7 @@ class GitRepo:
         try:
             repo = git.Repo(local_path)
             if repo.remotes.origin.url != self._config.repo_url:
-                raise RuntimeError(f"Repository {local_path} already exists and is not a clone of {repo_url}")
+                raise RuntimeError(f"Repository {local_path} already exists and is not a clone of {self._config.repo_url}")
         except (git.exc.NoSuchPathError, git.exc.InvalidGitRepositoryError):
             repo = git.Repo.clone_from(self._config.repo_url, local_path)
 

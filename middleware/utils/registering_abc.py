@@ -1,8 +1,8 @@
-from abc import ABC, abstractmethod
-from typing import Type
+from abc import ABC
+from typing import Self
 
 
-class SitemapParser(ABC):
+class RegisteringABC(ABC):
     """
     An abstract base class for sitemap parsers.
     It will abstract away the type of sitemap (xml, json, etc.).
@@ -11,10 +11,9 @@ class SitemapParser(ABC):
     _implementations = {}
 
     @classmethod
-    def _register_implementation(
-        cls,
-        identifier: str, 
-        implementation_class: type["SitemapParser"]
+    def register_implementation(
+        cls: Self,
+        identifier: str
     ) -> None:
         """
         Registers an implementation class with a given string identifier so it
@@ -31,10 +30,10 @@ class SitemapParser(ABC):
         -------
         None
         """
-        cls._implementations[identifier] = implementation_class
+        RegisteringABC._implementations[identifier] = cls
 
     @classmethod
-    def create_instance(cls, identifier: str) -> "SitemapParser":
+    def create_instance(cls, identifier: str) -> Self:
         """
         Create an instance of the implementation class based on the identifier.
         
@@ -52,25 +51,8 @@ class SitemapParser(ABC):
         -------
             ValueError: If no implementation is registered for the identifier.
         """
-        implementation_class = cls._implementations.get(identifier)
+        implementation_class = RegisteringABC._implementations.get(identifier)
         if implementation_class:
             return implementation_class()
         else:
             raise ValueError(f"No implementation registered for identifier '{identifier}'")
-
-    @abstractmethod
-    def datasets(self, content: str) -> str:
-        """
-        A asynchronous generator method that returns the URLs to all datasets of the repository.
-
-        Parameters
-        ----------
-            content : str
-                The contents of the sitemap to be parsed.
-
-        Yields
-        ------
-            str
-                A string with the URL to the next dataset.
-        """
-        pass

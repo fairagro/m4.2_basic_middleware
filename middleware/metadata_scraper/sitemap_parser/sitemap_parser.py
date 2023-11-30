@@ -1,11 +1,15 @@
-from xml.etree import ElementTree
+from abc import abstractmethod
 
-from sitemap_parser import SitemapParser
-
-
-class SitemapParserXml(SitemapParser):
+from utils.registering_abc import RegisteringABC
 
 
+class SitemapParser(RegisteringABC):
+    """
+    An abstract base class for sitemap parsers.
+    It will abstract away the type of sitemap (xml, json, etc.).
+    """
+
+    @abstractmethod
     def datasets(self, content: str) -> str:
         """
         A asynchronous generator method that returns the URLs to all datasets of the repository.
@@ -14,15 +18,10 @@ class SitemapParserXml(SitemapParser):
         ----------
             content : str
                 The contents of the sitemap to be parsed.
-        
+
         Yields
         ------
             str
                 A string with the URL to the next dataset.
         """
-        xml_root = ElementTree.fromstring(content)
-        for url in xml_root.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}loc' ):
-            yield url.text
-
-
-SitemapParser._register_implementation("xml", SitemapParserXml)
+        pass

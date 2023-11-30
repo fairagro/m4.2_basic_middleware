@@ -21,6 +21,9 @@ import opentelemetry.instrumentation.requests
 import opentelemetry.instrumentation.urllib
 import opentelemetry.instrumentation.aiohttp_client
 
+# add the script directory to the python module path
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+
 from metadata_scraper import MetadataScraper, MetadataScraperConfig
 from git_repo import GitRepo, GitRepoConfig
 from utils import make_path_absolute

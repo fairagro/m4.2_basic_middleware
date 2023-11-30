@@ -5,8 +5,8 @@ from opentelemetry import trace
 from opentelemetry.semconv.trace import SpanAttributes
 
 from http_session import HttpSession, HttpSessionConfig
-from sitemap_parser import SitemapParser
-from metadata_extractor import MetadataExtractor
+from .sitemap_parser import SitemapParser
+from .metadata_extractor import MetadataExtractor
 
 
 class MetadataScraperConfig(NamedTuple):

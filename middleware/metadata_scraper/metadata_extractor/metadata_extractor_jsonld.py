@@ -1,7 +1,7 @@
 import json
 from typing import Dict, List
 
-from metadata_extractor import MetadataExtractor
+from .metadata_extractor import MetadataExtractor
 
 
 class MetadataExtractorJsonld(MetadataExtractor):
@@ -45,4 +45,4 @@ class MetadataExtractorJsonld(MetadataExtractor):
         return [content]
 
 
-MetadataExtractor._register_implementation('jsonld', MetadataExtractorJsonld)
+MetadataExtractorJsonld.register_implementation('jsonld')

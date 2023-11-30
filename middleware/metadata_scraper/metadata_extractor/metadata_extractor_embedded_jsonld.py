@@ -3,7 +3,7 @@ from extruct import extract
 from bs4 import BeautifulSoup
 from typing import Dict, List
 
-from metadata_extractor import MetadataExtractor
+from .metadata_extractor import MetadataExtractor
 
 
 class MetadataExtractorEmbeddedJsonld(MetadataExtractor):
@@ -49,4 +49,4 @@ class MetadataExtractorEmbeddedJsonld(MetadataExtractor):
         return metadata
     
 
-MetadataExtractor._register_implementation('embedded_jsonld', MetadataExtractorEmbeddedJsonld)
+MetadataExtractorEmbeddedJsonld.register_implementation('embedded_jsonld')
