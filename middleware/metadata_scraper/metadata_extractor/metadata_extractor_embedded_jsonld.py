@@ -3,7 +3,7 @@ from extruct import extract
 from bs4 import BeautifulSoup
 from typing import Dict, List
 
-from .metadata_extractor import MetadataExtractor
+from .metadata_extractor import MetadataExtractor, MetadataParseError
 
 
 class MetadataExtractorEmbeddedJsonld(MetadataExtractor):
@@ -25,7 +25,10 @@ class MetadataExtractorEmbeddedJsonld(MetadataExtractor):
                 A list of dictionaries containing the extracted metadata.
         """
         base_url = get_base_url(content, url)
-        metadata = extract(content, base_url=base_url, uniform=True, syntaxes=['json-ld'])
+        try:
+            metadata = extract(content, base_url=base_url, uniform=True, syntaxes=['json-ld'])
+        except Exception as e:
+            raise MetadataParseError(e)
         return metadata['json-ld']
     
     def raw_metadata(self, content: str) -> List[str]:

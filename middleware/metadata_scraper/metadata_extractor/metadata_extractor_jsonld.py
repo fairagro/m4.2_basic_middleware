@@ -1,7 +1,7 @@
 import json
 from typing import Dict, List
 
-from .metadata_extractor import MetadataExtractor
+from .metadata_extractor import MetadataExtractor, MetadataParseError
 
 
 class MetadataExtractorJsonld(MetadataExtractor):
@@ -23,7 +23,14 @@ class MetadataExtractorJsonld(MetadataExtractor):
             List[Dict]
                 A list of dictionaries containing the extracted metadata.
         """
-        metadata = json.load(content)
+        if not content:
+            # we treat empty content as an error because to be consistent with the
+            # extruct library
+            raise MetadataParseError("Empty content")
+        try:
+            metadata = json.loads(content)
+        except json.JSONDecodeError as e:
+            raise MetadataParseError(e)
         if not isinstance(metadata, list):
             return [metadata]
         return metadata

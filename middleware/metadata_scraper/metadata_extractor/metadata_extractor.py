@@ -6,6 +6,17 @@ from opentelemetry import trace
 from utils.registering_abc import RegisteringABC
 
 
+class MetadataParseError(RuntimeError):
+    """
+    An excpetion of this type will be thrown by implementations of MetadataExtractor
+    if the content cannot be parsed.
+    """
+
+    def __init__(self, inner_exception: Exception) -> None:
+        super().__init__(f"Failed to parse metadata: {inner_exception}")
+        self.inner_exception = inner_exception
+
+
 class MetadataExtractor(RegisteringABC):
     """
     An abstract base class for metadata extractors (aka parsers).
