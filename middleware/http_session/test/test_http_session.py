@@ -4,10 +4,15 @@ from unittest.mock import AsyncMock, patch
 
 from http_session import HttpSession, HttpSessionConfig
 
-class TestGetDecodedUrl(unittest.IsolatedAsyncioTestCase):
+class TestHttpSession(unittest.IsolatedAsyncioTestCase):
+
+    # This test was created automatically with the help of Codeium.
+    # It's trivial. Better tests of HttpSession.get_decoded_url would
+    # take the HttpSessionConfig into account. But this is far form
+    # trivial...
     async def test_get_decoded_url(self):
         url = "https://example.com"
-        content = b"Hello, World!"
+        content = b'Hello, \xe4\xb8\x96\xe7\x95\x8c!'   # corresponds to "Hello, 世界!"
         encoding = "utf-8"
         session_config = HttpSessionConfig(**{
             'connection_limit': 1,
@@ -24,20 +29,20 @@ class TestGetDecodedUrl(unittest.IsolatedAsyncioTestCase):
             mock_detect.return_value = {"encoding": encoding}
 
             # Create an instance of the class
-            session = HttpSession(session_config)
+            async with HttpSession(session_config) as session:
 
-            # Patch the get method to return the mocked response
-            with patch.object(session, "get") as mock_get:
-                mock_get.return_value.__aenter__.return_value = response
+                # Patch the get method to return the mocked response
+                with patch.object(session, "get") as mock_get:
+                    mock_get.return_value.__aenter__.return_value = response
 
-                # Call the function under test
-                decoded_content = await session.get_decoded_url(url)
+                    # Call the function under test
+                    decoded_content = await session.get_decoded_url(url)
 
-                # Assert the decoded content
-                self.assertEqual(decoded_content, content.decode(encoding))
+                    # Assert the decoded content
+                    self.assertEqual(decoded_content, content.decode(encoding))
 
-                # Assert that the get method was called with the correct URL
-                mock_get.assert_called_once_with(url)
+                    # Assert that the get method was called with the correct URL
+                    mock_get.assert_called_once_with(url)
 
-                # Assert that the chardet.detect function was called with the correct content
-                mock_detect.assert_called_once_with(content)
+                    # Assert that the chardet.detect function was called with the correct content
+                    mock_detect.assert_called_once_with(content)
