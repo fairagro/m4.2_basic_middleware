@@ -187,7 +187,7 @@ class TestMetadataExtractorJsonLd(unittest.TestCase):
 
     def test_invalid_raw_metadata(self):
         expected_output = ["### invalid ###"]
-        output = self.my_class.raw_metadata(self._invalid_html)
+        output = self.my_class.raw_metadata(self._invalid_metadata)
         assertListofCodesEqual(output, expected_output)
 
 if __name__ == "__main__":
