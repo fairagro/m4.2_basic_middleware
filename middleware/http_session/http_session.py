@@ -84,4 +84,5 @@ class HttpSession(ClientSession):
         async with self.get(url) as response:
             content = await response.read()
             encoding = chardet.detect(content)['encoding']
-            return content.decode(encoding)
+            decoded_content = content.decode(encoding)
+            return decoded_content

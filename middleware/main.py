@@ -1,10 +1,9 @@
 import asyncio, aiofiles
 import os, sys
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import datetime, pytz
 import argparse
 import yaml
-import git
 import json
 import logging
 from opentelemetry import trace #, metrics
@@ -22,10 +21,12 @@ import opentelemetry.instrumentation.requests
 import opentelemetry.instrumentation.urllib
 import opentelemetry.instrumentation.aiohttp_client
 
-from http_session import HttpSession, HttpSessionConfig
-from sitemap_parser import SitemapParser
-from metadata_extractor import MetadataExtractor
-from metadata_scraper import MetadataScraper
+# add the script directory to the python module path
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+
+from metadata_scraper import MetadataScraper, MetadataScraperConfig
+from git_repo import GitRepo, GitRepoConfig
+from utils import make_path_absolute
 
 
 def setup_opentelemetry(otlp_config):
@@ -63,95 +64,24 @@ def setup_opentelemetry(otlp_config):
     # )
     # otel_meter = metrics.get_meter("FAIRagro.middleware.meter")
 
-def make_path_absolute(path):
-    if path and not os.path.isabs(path):
-        # we assume that relative paths are relative to the script directory, not to the current working directory
-        script_dir = os.path.dirname(os.path.realpath(__file__))
-        return os.path.normpath(os.path.join(script_dir, path))
-    return path
 
-async def scrape_repo_and_write_to_file(name, sitemap_url, session, folder_path, parser, extractor):
+async def scrape_repo_and_write_to_file(folder_path, scraper_config, http_config):
     start_timestamp = datetime.datetime.now(pytz.UTC)        
-    scraper = MetadataScraper(session, parser, extractor)
-    metadata = await scraper.scrape_repo(name, sitemap_url)
+    scraper = MetadataScraper(scraper_config, http_config)
+    metadata = await scraper.scrape_repo()
     # We should collect some metrics data, but OpenTelemetry does not yet support transmitting
     # simple synchronous gauge values.
     # count_sites = len(sites)
     # count_metadata = len(metadata)
-    path = os.path.join(folder_path, f'{name}.json')
+    path = os.path.join(folder_path, f"{scraper_config.name}.json")
     async with aiofiles.open(path, 'w', encoding='utf-8') as f:
         await f.write(json.dumps(metadata, indent=2, ensure_ascii=False))
     return path, start_timestamp
 
 def commit_to_git(name, sitemap_url, git_repo, path, starttime):
-    git_repo.index.add([path])
     formatted_time = starttime.strftime('%Y-%m-%d %H:%M:%S.%f %Z%z')
-    git_repo.index.commit(
-        f"FAIRagro middleware scraper for repo '{name}' with sitemap {sitemap_url}, started at {formatted_time}")
-
-def make_ssh_key_path(original_path):
-    # This is some ugly workaround for git on Windows. In this case git is based on MSYS, so the
-    # ssh command requires POSIX compatible paths, whereas otherwise we deal with Windows paths
-    # on Windows. Thus we need to convert the Windows path to the ssh key to MSYS-POSIX.
-    # Be aware: this is brittle as it assumes that we always use MSYS ssh on Windows. Maybe there
-    # are other ways to setup git.
-    path = Path(original_path)
-    parts = path.parts
-    if parts[0].endswith(':\\'):
-        parts = ['/', parts[0].rstrip(':\\'), *parts[1:]]
-    return PurePosixPath(*parts)
-
-def setup_git_repo(repo_info):
-    # find out local repo path
-    local_path = make_path_absolute(repo_info['local_path'])
-
-    # find the ssh key and use it
-    ssh_key_path = make_path_absolute(repo_info.get('ssh_key_path'))
-    if ssh_key_path:
-        # Note: actutally /dev/null is OS-dependent. There is os.devnull to cope with this.
-        # But for my git setup on Windwos, /dev/null is the correct value -- probably because
-        # it uses an MSYS-based ssh. 
-        os.environ['GIT_SSH_COMMAND'] = f'ssh -F /dev/null -i {make_ssh_key_path(ssh_key_path)}'
-
-    # Initialize existing repo or clone it, if this hasn't been done yet
-    try:
-        repo_url = repo_info['repo_url']
-        repo = git.Repo(local_path)
-        if repo.remotes.origin.url != repo_url:
-            raise RuntimeError(f"Repository {local_path} already exists and is not a clone of {repo_url}")
-    except (git.exc.NoSuchPathError, git.exc.InvalidGitRepositoryError):
-        repo = git.Repo.clone_from(repo_url, local_path)
-
-    # set git config
-    config_writer = repo.config_writer()
-    config_writer.set_value("user", "name", repo_info['user_name'])
-    config_writer.set_value("user", "email", repo_info['user_email'])
-    config_writer.release()
-
-    # switch into desired branch or create it
-    branch = repo_info.get('branch', 'main')
-    if branch not in repo.branches:
-        # before we can create a branch we need have a commit, so try to access it
-        try:
-            _ = repo.head.commit
-        except ValueError:
-            # create initial commit
-            readme = """# Purpose of this repository #
-
-This repository is automatically maintained by the FAIRagro middleware. It stores scraped meta data from resarch data repositories in consolidated JSON-LD files.
-"""
-            readme_path = os.path.join(local_path, 'README.md')
-            with open(readme_path, "w") as file:
-                file.write(readme)
-            repo.index.add([readme_path])
-            repo.index.commit("Initial commit")
-        # create new branch
-        repo.create_head(branch)
-        repo.remotes.origin.push(branch)
-    repo.git.checkout(branch)
-
-    return repo
-
+    msg = f"FAIRagro middleware scraper for repo '{name}' with sitemap {sitemap_url}, started at {formatted_time}"
+    git_repo.add_and_commit([path], msg)
 
 async def main():
     try:
@@ -188,28 +118,25 @@ async def main():
         try:
             # setup git repo if desired
             if args.git:
-                git_repo = setup_git_repo(config['git'])
+                git_config = GitRepoConfig(**config['git'])
+                git_repo = GitRepo(git_config)
                 local_path = git_repo.working_dir
-                git_repo.remotes.origin.pull()
+                git_repo.pull()
             else:
                 git_repo = None
                 local_path = make_path_absolute(config['git']['local_path'])
                 os.makedirs(local_path, exist_ok=True)
 
             # scrape sites
-            http_config = HttpSessionConfig(**config['http_client'])
-            async with HttpSession(http_config) as session:
-                for sitemap_info in config['sitemaps']:
-                    name = sitemap_info['name']
-                    url = sitemap_info['url']
-                    parser = SitemapParser.create_instance(sitemap_info['sitemap'])
-                    extractor = MetadataExtractor.create_instance(sitemap_info['metadata'])
-                    path, starttime = await scrape_repo_and_write_to_file(name, url, session, local_path, parser, extractor)
-                    if git_repo:
-                        commit_to_git(name, url, git_repo, path, starttime)
+            for sitemap in config['sitemaps']:
+                scraper_config = MetadataScraperConfig(**sitemap)
+                path, starttime = await scrape_repo_and_write_to_file(
+                    local_path, scraper_config, config['http_client'])
+                if git_repo:
+                    commit_to_git(scraper_config.name, scraper_config.url, git_repo, path, starttime)
             
             if git_repo:
-                git_repo.remotes.origin.push()
+                git_repo.push()
         except Exception as e:
             otel_span = trace.get_current_span()
             otel_span.record_exception(e)

@@ -1,63 +1,27 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import Dict, List, Optional
 import logging
 from opentelemetry import trace
 
-class MetadataExtractor(ABC):
+from utils.registering_abc import RegisteringABC
+
+
+class MetadataParseError(RuntimeError):
+    """
+    An excpetion of this type will be thrown by implementations of MetadataExtractor
+    if the content cannot be parsed.
+    """
+
+    def __init__(self, inner_exception: Exception) -> None:
+        super().__init__(f"Failed to parse metadata: {inner_exception}")
+        self.inner_exception = inner_exception
+
+
+class MetadataExtractor(RegisteringABC):
     """
     An abstract base class for metadata extractors (aka parsers).
     It will abstract away how the metadata is embedded in a webpage.
     """
-
-    _implementations = {}
-
-    @classmethod
-    def _register_implementation(
-        cls,
-        identifier: str, 
-        implementation_class: type["MetadataExtractor"]
-    ) -> None:
-        """
-        Registers an implementation class with a given string identifier so it
-        can be created later on by the `create_instance` method.
-
-        Parameters
-        ----------
-        identifier : str
-            The identifier for the implementation.
-        implementation_class : type["MetadataExtractor"]
-            The class of the implementation.
-
-        Returns
-        -------
-        None
-        """
-        cls._implementations[identifier] = implementation_class
-
-    @classmethod
-    def create_instance(cls, identifier: str) -> "MetadataExtractor":
-        """
-        Create an instance of the implementation class based on the identifier.
-        
-        Parameters
-        ----------
-            identifier : str
-                The identifier of the implementation class.
-
-        Returns
-        -------
-            MetadataExtractor
-                An instance of the implementation class specified by the identifier.
-
-        Returns
-        -------
-            ValueError: If no implementation is registered for the identifier.
-        """
-        implementation_class = cls._implementations.get(identifier)
-        if implementation_class:
-            return implementation_class()
-        else:
-            raise ValueError(f"No implementation registered for identifier '{identifier}'")
 
     @abstractmethod
     def metadata(self, content: str, url: str) -> List[Dict]:

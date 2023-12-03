@@ -1,5 +1,7 @@
-from sitemap_parser import SitemapParser
 import json
+
+from .sitemap_parser import SitemapParser
+
 
 BASE_URL = 'https://www.openagrar.de/receive/'
 
@@ -26,4 +28,4 @@ class SitemapParserOpenAgrar(SitemapParser):
             yield f"{BASE_URL}{mid}"
 
 
-SitemapParser._register_implementation("openagrar", SitemapParserOpenAgrar)
+SitemapParserOpenAgrar.register_implementation("openagrar")
