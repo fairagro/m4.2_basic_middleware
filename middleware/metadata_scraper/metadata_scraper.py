@@ -1,3 +1,8 @@
+"""
+This module defines the class 'MetadataScraper' and th corresponding class
+'MetadataScraperConfig'.
+"""
+
 import asyncio
 import itertools
 from typing import Annotated, Dict, List, NamedTuple, Optional
@@ -20,7 +25,8 @@ class MetadataScraperConfig(NamedTuple):
     metadata: Annotated[str, "The identifier of the metadata extractor to use"]
     # Unfortunately it's not feasible to nest NamedTuple's, so we use a dict here
     # instead of a HttpSessionConfig instance.
-    http_client: Annotated[Optional[Dict], "A http session configuration specialized for this repository"] = None
+    http_client: Annotated[Optional[Dict],
+                           "A http session configuration specialized for this repository"] = None
 
 
 class MetadataScraper:

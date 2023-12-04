@@ -1,4 +1,25 @@
-from typing import Annotated, List, NamedTuple, Optional
+"""
+This module deals with storing files in a git repository.
+
+Classes
+-------
+    GitRepo
+        A wrapper class for git.Repo that is able to initialize a new git
+        repository or clone an existing one. It respects the configuration
+        specified in terms of a GitRepoConfig instance.
+    GitRepoConfig
+        The configuration for a GitRepo object.
+"""
+
+__all__ = [
+    'GitRepo',
+    'GitRepoConfig'
+]
+__version__ = '0.1.0'
+__author__ = 'Carsten Scharfenberg'
+
+
+from typing import Annotated, List, NamedTuple, Optional, Union
 from pathlib import Path, PurePosixPath
 import os
 import git
@@ -7,6 +28,9 @@ from utils import make_path_absolute
 
 
 class GitRepoConfig(NamedTuple):
+    """
+    A class for the configuration of a GitRepo.
+    """
 
     repo_url: Annotated[str, "The ssh URL of the git repository"]
     local_path: Annotated[str, "The local path of the git repository"]
@@ -17,23 +41,83 @@ class GitRepoConfig(NamedTuple):
 
 
 class GitRepo:
+    """
+    A wrapper class for git.Repo that is able to initialize or clone git repository
+
+    Methods
+    -------
+        add_and_commit(files, message)
+            Add the specified files to the git repo and commits them.
+        pull()
+            Performs a pull from origin on the git repo.
+        push()
+            Performs a push to origin on the git repo.
+
+    Properties
+    ----------
+        working_dir
+            Then local working directory of the git repo
+    """
 
     def __init__(self, config: GitRepoConfig) -> None:
         self._config = config
         self._repo = self._setup()
 
     @property
-    def working_dir(self):
-        return self._repo.working_dir
-    
-    def add_and_commit(self, files: List[Path], message: str):
-        self._repo.index.add(files)
-        self._repo.index.commit(message)
+    def working_dir(self) -> Union[str, os.PathLike[str]]:
+        """
+        Returns the local working directory of the git repo
 
-    def pull(self):
+        Returns
+        -------
+        Union[None, str, os.PathLike[str]]
+            The local working directory of the git repo as path-like object
+        """
+        return self._repo.working_dir
+
+    def add_and_commit(self, files: List[Path], message: str) -> git.Commit:
+        """
+        Add the specified files to the git repo and commits them.
+
+        Parameters
+        ----------
+        files : List[Path]
+            a list of (absolute) file path within the git working directory
+            that are to be added to the git repo
+        message : str
+            the commit message
+
+        Returns
+        -------
+        git.Commit
+            The git commit object as returned by GitPython
+        """
+        self._repo.index.add(files)
+        return self._repo.index.commit(message)
+
+    def pull(self) -> git.util.IterableList[git.FetchInfo]:
+        """
+        Performs a pull from origin on the git repo.
+
+        Returns
+        -------
+        git.util.IterableList[git.FetchInfo]
+            The git fetch info list as returned by GitPython
+        """
         return self._repo.remotes.origin.pull()
 
-    def push(self):
+    def push(self) -> git.util.IterableList[git.PushInfo]:
+        """
+        Performs a push to origin on the git repo.
+
+        Returns
+        -------
+        git.util.IterableList[git.PushInfo]
+            The git push info list as returned by GitPython.
+            Note that push() actually return an instance of clas PushInfoList,
+            but this class is not exported, so we cannot use it as type hint
+            here. But this class inherits from git.util.IterableList[git.PushInfo].
+        """
         return self._repo.remotes.origin.push()
 
     @staticmethod
@@ -41,8 +125,8 @@ class GitRepo:
         # This is some ugly workaround for git on Windows. In this case git is based on MSYS, so the
         # ssh command requires POSIX compatible paths, whereas otherwise we deal with Windows paths
         # on Windows. Thus we need to convert the Windows path to the ssh key to MSYS-POSIX.
-        # Be aware: this is brittle as it assumes that we always use MSYS ssh on Windows. Maybe there
-        # are other ways to setup git.
+        # Be aware: this is brittle as it assumes that we always use MSYS ssh on Windows. Maybe
+        # there are other ways to setup git.
         path = Path(original_path)
         parts = path.parts
         if parts[0].endswith(':\\'):
@@ -58,14 +142,16 @@ class GitRepo:
         if ssh_key_path:
             # Note: actutally /dev/null is OS-dependent. There is os.devnull to cope with this.
             # But for my git setup on Windwos, /dev/null is the correct value -- probably because
-            # it uses an MSYS-based ssh. 
-            os.environ['GIT_SSH_COMMAND'] = f'ssh -F /dev/null -i {GitRepo._make_ssh_key_path(ssh_key_path)}'
+            # it uses an MSYS-based ssh.
+            os.environ['GIT_SSH_COMMAND'] = \
+                f'ssh -F /dev/null -i {GitRepo._make_ssh_key_path(ssh_key_path)}'
 
         # Initialize existing repo or clone it, if this hasn't been done yet
         try:
             repo = git.Repo(local_path)
             if repo.remotes.origin.url != self._config.repo_url:
-                raise RuntimeError(f"Repository {local_path} already exists and is not a clone of {self._config.repo_url}")
+                raise RuntimeError("Repository " + local_path + "already exists and is not a " +
+                                   " clone of " + self._config.repo_url)
         except (git.exc.NoSuchPathError, git.exc.InvalidGitRepositoryError):
             repo = git.Repo.clone_from(self._config.repo_url, local_path)
 
@@ -85,10 +171,11 @@ class GitRepo:
                 # create initial commit
                 readme = """# Purpose of this repository #
 
-    This repository is automatically maintained by the FAIRagro middleware. It stores scraped meta data from resarch data repositories in consolidated JSON-LD files.
+    This repository is automatically maintained by the FAIRagro middleware. It stores scraped meta
+    data from resarch data repositories in consolidated JSON-LD files.
     """
                 readme_path = os.path.join(local_path, 'README.md')
-                with open(readme_path, "w") as file:
+                with open(readme_path, "w", encoding="utf-8") as file:
                     file.write(readme)
                 repo.index.add([readme_path])
                 repo.index.commit("Initial commit")
@@ -98,3 +185,4 @@ class GitRepo:
         repo.git.checkout(branch)
 
         return repo
+    

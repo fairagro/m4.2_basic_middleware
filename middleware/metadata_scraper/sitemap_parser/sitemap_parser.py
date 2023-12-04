@@ -1,3 +1,7 @@
+"""
+This module define the abtract base class for sitemap parsers.d
+"""
+
 from abc import abstractmethod
 
 from utils.registering_abc import RegisteringABC
@@ -24,4 +28,3 @@ class SitemapParser(RegisteringABC):
             str
                 A string with the URL to the next dataset.
         """
-        pass

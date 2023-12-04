@@ -1,12 +1,21 @@
+"""
+This module defines the class 'MetadataExtractorEmbeddedJsonld' that implements
+'MetadataExtractor'.
+"""
+
+from typing import Dict, List
 from w3lib.html import get_base_url
 from extruct import extract
 from bs4 import BeautifulSoup
-from typing import Dict, List
 
 from .metadata_extractor import MetadataExtractor, MetadataParseError
 
 
 class MetadataExtractorEmbeddedJsonld(MetadataExtractor):
+    """
+    An implementation of 'MetadataExtractor' that extracts metadata from JSON-LD embedded into
+    HTML.
+    """
 
     def metadata(self, content: str, url: str) -> List[Dict]:
         """
@@ -28,9 +37,9 @@ class MetadataExtractorEmbeddedJsonld(MetadataExtractor):
         try:
             metadata = extract(content, base_url=base_url, uniform=True, syntaxes=['json-ld'])
         except Exception as e:
-            raise MetadataParseError(e)
+            raise MetadataParseError(e) from e
         return metadata['json-ld']
-    
+
     def raw_metadata(self, content: str) -> List[str]:
         """
         Extracts a list of unparsed JSON-LD content from the HTML. This may be useful for
@@ -50,6 +59,6 @@ class MetadataExtractorEmbeddedJsonld(MetadataExtractor):
         json_ld = soup.find_all('script', type='application/ld+json')
         metadata = [ js.text for js in json_ld ]
         return metadata
-    
+
 
 MetadataExtractorEmbeddedJsonld.register_implementation('embedded_jsonld')
