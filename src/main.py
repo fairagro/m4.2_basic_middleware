@@ -1,18 +1,16 @@
-import asyncio, aiofiles
-import os, sys
-from pathlib import Path, PurePosixPath
-import datetime, pytz
 import argparse
-import yaml
-import git
+import asyncio
+import datetime
 import json
 import logging
-from opentelemetry import trace #, metrics
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.sampling import ALWAYS_ON
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+import os
+import sys
+from pathlib import Path, PurePosixPath
+
+import aiofiles
+import git
+import opentelemetry.instrumentation.aiohttp_client
+
 # from opentelemetry.sdk.metrics import MeterProvider
 # from opentelemetry.sdk.metrics.export import (
 #     ConsoleMetricExporter,
@@ -20,12 +18,18 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExport
 # )
 import opentelemetry.instrumentation.requests
 import opentelemetry.instrumentation.urllib
-import opentelemetry.instrumentation.aiohttp_client
-
+import pytz
+import yaml
 from http_session import HttpSession, HttpSessionConfig
-from sitemap_parser import SitemapParser
 from metadata_extractor import MetadataExtractor
 from metadata_scraper import MetadataScraper
+from opentelemetry import trace  #, metrics
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.sampling import ALWAYS_ON
+from sitemap_parser import SitemapParser
 
 
 def setup_opentelemetry(otlp_config):

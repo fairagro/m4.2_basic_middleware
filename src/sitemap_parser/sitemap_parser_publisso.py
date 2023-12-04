@@ -2,10 +2,10 @@ import json
 
 from sitemap_parser import SitemapParser
 
-BASE_URL = "https://www.openagrar.de/receive/"
+BASE_URL = "https://frl.publisso.de/resource/"
 
 
-class SitemapParserOpenagrar(SitemapParser):
+class SitemapParserPublisso(SitemapParser):
     def datasets(self, content: str) -> str:
         """
         A asynchronous generator method that returns the URLs to all datasets of the repository.
@@ -21,9 +21,10 @@ class SitemapParserOpenagrar(SitemapParser):
                 A string with the URL to the next dataset.
         """
         json_objs = json.loads(content)
-        mods_ids = [doc["id"] for doc in json_objs["response"]["docs"]]
-        for mid in mods_ids:
-            yield f"{BASE_URL}{mid}"
+        frl_ids = [obj["@id"] for obj in json_objs]
+        for fid in frl_ids:
+            print(f"Base url: {BASE_URL}{fid}.json2")
+            yield f"{BASE_URL}{fid}.json2"
 
 
-SitemapParser._register_implementation("openagrar", SitemapParserOpenagrar)
+SitemapParser._register_implementation("publisso", SitemapParserPublisso)
