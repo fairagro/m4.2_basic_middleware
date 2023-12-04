@@ -23,7 +23,7 @@ class MetadataExtractorJsonld(MetadataExtractor):
             List[Dict]
                 A list of dictionaries containing the extracted metadata.
         """
-        metadata = json.load(content)
+        metadata = json.loads(content)
         if not isinstance(metadata, list):
             return [metadata]
         return metadata

@@ -1,7 +1,8 @@
-from w3lib.html import get_base_url
-from extruct import extract
-from bs4 import BeautifulSoup
 from typing import Dict, List
+
+from bs4 import BeautifulSoup
+from extruct import extract
+from w3lib.html import get_base_url
 
 from metadata_extractor import MetadataExtractor
 

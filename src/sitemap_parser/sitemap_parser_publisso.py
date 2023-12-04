@@ -23,7 +23,6 @@ class SitemapParserPublisso(SitemapParser):
         json_objs = json.loads(content)
         frl_ids = [obj["@id"] for obj in json_objs]
         for fid in frl_ids:
-            print(f"Base url: {BASE_URL}{fid}.json2")
             yield f"{BASE_URL}{fid}.json2"
 
 
