@@ -1,3 +1,5 @@
+# pylint: disable-all
+
 import unittest
 
 from metadata_scraper.metadata_extractor.metadata_extractor_embedded_jsonld import MetadataExtractorEmbeddedJsonld

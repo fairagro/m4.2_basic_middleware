@@ -16,13 +16,14 @@ __all__ = [
     'GitRepoConfig'
 ]
 __version__ = '0.1.0'
-__author__ = 'Carsten Scharfenberg'
+__author__ = 'carsten.scharfenberg@zalf.de'
 
 
 from typing import Annotated, List, NamedTuple, Optional, Union
 from pathlib import Path, PurePosixPath
 import os
 import git
+import git.util
 
 from utils import make_path_absolute
 
@@ -95,28 +96,25 @@ class GitRepo:
         self._repo.index.add(files)
         return self._repo.index.commit(message)
 
-    def pull(self) -> git.util.IterableList[git.FetchInfo]:
+    def pull(self) -> any:
         """
         Performs a pull from origin on the git repo.
 
         Returns
         -------
-        git.util.IterableList[git.FetchInfo]
+        any
             The git fetch info list as returned by GitPython
         """
         return self._repo.remotes.origin.pull()
 
-    def push(self) -> git.util.IterableList[git.PushInfo]:
+    def push(self) -> any:
         """
         Performs a push to origin on the git repo.
 
         Returns
         -------
-        git.util.IterableList[git.PushInfo]
+        any
             The git push info list as returned by GitPython.
-            Note that push() actually return an instance of clas PushInfoList,
-            but this class is not exported, so we cannot use it as type hint
-            here. But this class inherits from git.util.IterableList[git.PushInfo].
         """
         return self._repo.remotes.origin.push()
 

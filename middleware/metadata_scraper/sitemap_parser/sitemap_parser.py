@@ -1,5 +1,5 @@
 """
-This module define the abtract base class for sitemap parsers.d
+This module define the abtract base class for sitemap parsers.
 """
 
 from abc import abstractmethod

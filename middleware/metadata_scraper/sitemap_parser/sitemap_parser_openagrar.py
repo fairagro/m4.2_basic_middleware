@@ -1,3 +1,13 @@
+"""
+This module defines an implementation of SitemapParser that parses text sitemaps
+as returned by the research repository OpenAgrar.
+"""
+
+__all__ = []
+__version__ = '0.1.0'
+__author__ = 'brizuela@ipk-gatersleben.de'
+
+
 import json
 
 from .sitemap_parser import SitemapParser
@@ -7,6 +17,9 @@ BASE_URL = 'https://www.openagrar.de/receive/'
 
 
 class SitemapParserOpenAgrar(SitemapParser):
+    """
+    An implementation class of SitemapParser that parses text sitemaps as returned by OpenAgrar
+    """
 
     def datasets(self, content: str) -> str:
         """

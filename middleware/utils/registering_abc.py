@@ -1,3 +1,7 @@
+"""
+This module defines the abstract base class 'RegisteringABC'
+"""
+
 from abc import ABC
 from typing import Self
 

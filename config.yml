@@ -34,8 +34,8 @@ http_client:
 git:
   repo_url: git@github.com:fairagro/middleware_repo.git
   branch: main
-  ssh_key_path: ../ssh_key.pem
-  local_path: ../output
+  ssh_key_path: ../../ssh_key.pem
+  local_path: ../../output
   user_name: "FAIRagro middleware"
   user_email: "middleware@fairagro.net"
 

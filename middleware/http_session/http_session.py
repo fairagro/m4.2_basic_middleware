@@ -1,6 +1,11 @@
-from aiohttp import ClientSession, TCPConnector, ClientTimeout
+"""
+This module defines the class HttpSession and its corresponding configuration class
+HttpSessionConfig.
+"""
+
 from typing import Annotated, NamedTuple, Optional, Type
 from types import TracebackType
+from aiohttp import ClientSession, TCPConnector, ClientTimeout
 import chardet
 
 
@@ -16,7 +21,9 @@ class HttpSessionConfig(NamedTuple):
 
 class HttpSession(ClientSession):
     """
-    A wrapper around aiohttp.ClientSession that add the 
+    A wrapper around aiohttp.ClientSession that adds the method get_decoded_url for automatic
+    encoding detection (which is needed in case the website is broken).
+    Additional it respects configuration in terms of an HttpSessionConfig instance.
     """
 
     def __init__(self, config: HttpSessionConfig) -> None:
@@ -27,6 +34,10 @@ class HttpSession(ClientSession):
         ----------
             config : HttpSessionConfig
                 The configuration for the HttpSession class.
+
+        Returns
+        -------
+            None
         """
         connector = TCPConnector(limit=config.connection_limit)
         timeout = ClientTimeout(
@@ -58,12 +69,16 @@ class HttpSession(ClientSession):
 
         Parameters
         ----------
-        exc_type : Optional[Type[BaseException]]
-            The type of the exception being handled, if any.
-        exc_val : Optional[BaseException]
-            The exception instance being handled, if any.
-        exc_tb : Optional[TracebackType]
-            The traceback of the exception being handled, if any.
+            exc_type : Optional[Type[BaseException]]
+                The type of the exception being handled, if any.
+            exc_val : Optional[BaseException]
+                The exception instance being handled, if any.
+            exc_tb : Optional[TracebackType]
+                The traceback of the exception being handled, if any.
+
+        Returns
+        -------
+            None
         """
         return await super().__aexit__(exc_type, exc_val, exc_tb)
 

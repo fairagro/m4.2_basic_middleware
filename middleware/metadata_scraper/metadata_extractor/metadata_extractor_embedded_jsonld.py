@@ -3,6 +3,11 @@ This module defines the class 'MetadataExtractorEmbeddedJsonld' that implements
 'MetadataExtractor'.
 """
 
+__all__ = []
+__version__ = '0.1.0'
+__author__ = 'carsten.scharfenberg@zalf.de'
+
+
 from typing import Dict, List
 from w3lib.html import get_base_url
 from extruct import extract

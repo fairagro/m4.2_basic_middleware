@@ -1,11 +1,20 @@
-import asyncio, aiofiles
-import os, sys
+"""
+The main script file for the FAIRagro basic middleware.
+"""
+
+import os
+import sys
 from pathlib import Path
-import datetime, pytz
+import datetime
 import argparse
-import yaml
 import json
 import logging
+from typing import Tuple
+
+import asyncio
+import aiofiles
+import pytz
+import yaml
 from opentelemetry import trace #, metrics
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
@@ -24,12 +33,26 @@ import opentelemetry.instrumentation.aiohttp_client
 # add the script directory to the python module path
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
+# Disable pylint warning that imports are not on top. But we need to adapt the import path before.
+# Is there another solution so packages next top the main script can be found?
+# pylint: disable=wrong-import-position
 from metadata_scraper import MetadataScraper, MetadataScraperConfig
+from http_session import HttpSessionConfig
 from git_repo import GitRepo, GitRepoConfig
 from utils import make_path_absolute
 
 
-def setup_opentelemetry(otlp_config):
+def setup_opentelemetry(otlp_config: dict) -> None:
+    """
+    Setup OpenTelemetry for tracing.
+
+    Arguments
+    ---------
+        otlp_config : dict
+            A dictionary containing the configuration for OpenTelemetry.
+            Currenlty only the 'endpoint' key is supported.
+    """
+
     # Initialize some automatic OpenTelemetry instrumentations.
     # Actually we only use aiohttp, but requests and urllib are indirect dependencies.
     # We we also instrument them in case they are used internally.
@@ -54,9 +77,9 @@ def setup_opentelemetry(otlp_config):
     else:
         trace.set_tracer_provider(TracerProvider())
 
-    # Note: we would like to create a synchronous gauge to report the number of datasets within each repo.
-    # Unfortunately the OpenTelemetry Python SDK does not support this yet. We could try to work around with
-    # an observable gauge, but this is far from ideal.
+    # Note: we would like to create a synchronous gauge to report the number of datasets within
+    # each repo. Unfortunately the OpenTelemetry Python SDK does not support this yet. We could
+    # try to work around with an observable gauge, but this is far from ideal.
     #
     # Initialize OpenTelemetry for Metrics to Console
     # metrics.set_meter_provider(
@@ -65,9 +88,29 @@ def setup_opentelemetry(otlp_config):
     # otel_meter = metrics.get_meter("FAIRagro.middleware.meter")
 
 
-async def scrape_repo_and_write_to_file(folder_path, scraper_config, http_config):
-    start_timestamp = datetime.datetime.now(pytz.UTC)        
-    scraper = MetadataScraper(scraper_config, http_config)
+async def scrape_repo_and_write_to_file(
+        folder_path: str,
+        scraper_config: MetadataScraperConfig,
+        default_http_config: HttpSessionConfig) -> Tuple[str, datetime.datetime]:
+    """
+    Scrapes research repository metadata and writes it to a file.
+
+    Arguments
+    ---------
+        folder_path : str
+            The folder path where the file should be saved.
+        scraper_config : dict
+            The configuration for the metadata scraper.
+        http_config : dict
+            The configuration for the HTTP client.
+
+    Returns
+    -------
+        Tuple[str, datetime.datetime]
+            A tuple containing the file path and the start timestamp.
+    """
+    start_timestamp = datetime.datetime.now(pytz.UTC)
+    scraper = MetadataScraper(scraper_config, default_http_config)
     metadata = await scraper.scrape_repo()
     # We should collect some metrics data, but OpenTelemetry does not yet support transmitting
     # simple synchronous gauge values.
@@ -78,12 +121,43 @@ async def scrape_repo_and_write_to_file(folder_path, scraper_config, http_config
         await f.write(json.dumps(metadata, indent=2, ensure_ascii=False))
     return path, start_timestamp
 
-def commit_to_git(name, sitemap_url, git_repo, path, starttime):
+def commit_to_git(name: str,
+                  sitemap_url: str,
+                  git_repo: GitRepo,
+                  path: str,
+                  starttime: datetime) -> None:
+    """
+    Create a log message and commit file to git.
+
+    Arguments
+    ---------
+        name : str
+            The name of the repository.
+        sitemap_url : str
+            The URL of the sitemap.
+        git_repo : GitRepo
+            The git repository.
+        path : str
+            The path of the file to commit.
+        starttime : datetime
+            The time the scraper started.
+
+    Returns
+    -------
+        None
+    """
     formatted_time = starttime.strftime('%Y-%m-%d %H:%M:%S.%f %Z%z')
-    msg = f"FAIRagro middleware scraper for repo '{name}' with sitemap {sitemap_url}, started at {formatted_time}"
+    msg = (
+        f"FAIRagro middleware scraper for repo '{name}' with sitemap {sitemap_url}, started "
+        f"at {formatted_time}"
+    )
     git_repo.add_and_commit([path], msg)
 
 async def main():
+    """
+    The main async function of the basic middleware
+    """
+
     try:
         parser = argparse.ArgumentParser(
             prog = 'fairagro-middleware',
@@ -93,24 +167,29 @@ async def main():
                             type=Path,
                             default='config.yml',
                             help='Config file for this tool.')
-        parser.add_argument('--git',
-                            action=argparse.BooleanOptionalAction,
-                            default=True,
-                            help='Specify this flag to enabled or disable git interactions.'
-                                    'If disabled the outout files will nevrtheless be written to git.local_path '
-                                    'as specified within the config file.'),
+        parser.add_argument(
+            '--git',
+            action=argparse.BooleanOptionalAction,
+            default=True,
+            help=(
+                'Specify this flag to enabled or disable git interactions.'
+                'If disabled the outout files will nevrtheless be written to git.local_path '
+                'as specified within the config file.'
+            )
+        )
         args = parser.parse_args()
 
         config_path = make_path_absolute(args.config)
         if not os.path.isfile(config_path):
             raise FileNotFoundError(f"Config file {config_path} does not exist.")
-        
+
         # load config
-        with open(config_path, 'r') as f:
+        with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
 
         setup_opentelemetry(config['opentelemetry'])
-    except Exception as e:
+    # pylint: disable-next=broad-except
+    except Exception:
         logging.exception("An error occured during initialization")
         sys.exit(1)
 
@@ -127,16 +206,19 @@ async def main():
                 local_path = make_path_absolute(config['git']['local_path'])
                 os.makedirs(local_path, exist_ok=True)
 
+            default_http_config = HttpSessionConfig(**config['http_client'])
             # scrape sites
             for sitemap in config['sitemaps']:
                 scraper_config = MetadataScraperConfig(**sitemap)
                 path, starttime = await scrape_repo_and_write_to_file(
-                    local_path, scraper_config, config['http_client'])
+                    local_path, scraper_config, default_http_config)
                 if git_repo:
-                    commit_to_git(scraper_config.name, scraper_config.url, git_repo, path, starttime)
-            
+                    commit_to_git(
+                        scraper_config.name, scraper_config.url, git_repo, path, starttime)
+
             if git_repo:
                 git_repo.push()
+        # pylint: disable-next=broad-except
         except Exception as e:
             otel_span = trace.get_current_span()
             otel_span.record_exception(e)
@@ -144,6 +226,6 @@ async def main():
             otel_span.add_event(msg)
             logging.exception(msg)
             sys.exit(1)
-        
+
 if __name__ == '__main__':
     asyncio.run(main())
