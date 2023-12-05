@@ -1,16 +1,24 @@
-import asyncio
+"""
+A test module for the http_session package.
+"""
+
 import unittest
 from unittest.mock import AsyncMock, patch
 
 from http_session import HttpSession, HttpSessionConfig
 
 class TestHttpSession(unittest.IsolatedAsyncioTestCase):
+    """
+    The main test class
+    """
 
-    # This test was created automatically with the help of Codeium.
-    # It's trivial. Better tests of HttpSession.get_decoded_url would
-    # take the HttpSessionConfig into account. But this is far form
-    # trivial...
     async def test_get_decoded_url(self):
+        """
+        This test was created automatically with the help of Codeium.
+        It's trivial. Better tests of HttpSession.get_decoded_url would
+        take the HttpSessionConfig into account. But this is far form
+        trivial...
+        """
         url = "https://example.com"
         content = b'Hello, \xe4\xb8\x96\xe7\x95\x8c!'   # corresponds to "Hello, 世界!"
         encoding = "utf-8"

@@ -1,3 +1,7 @@
+"""
+This module defines the abstract base class 'RegisteringABC'
+"""
+
 from abc import ABC
 from typing import Self
 
@@ -57,5 +61,4 @@ class RegisteringABC(ABC):
         implementation_class = RegisteringABC._implementations.get(identifier)
         if implementation_class:
             return implementation_class()
-        else:
-            raise ValueError(f"No implementation registered for identifier '{identifier}'")
+        raise ValueError(f"No implementation registered for identifier '{identifier}'")

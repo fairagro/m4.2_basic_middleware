@@ -1,9 +1,18 @@
+"""
+This module defines some assert functions useful for unit tests.
+"""
+
 from typing import List
 
 
+# pylint tries to enforce snake_case function names by default, but unittest uses camelCase
+# for asserts. As we're using unittest we would like to use their conventions and disable
+# pylint's check here.
+# pylint: disable-next=invalid-name
 def assertCodesEqual(string1 : str, string2 : str) -> bool:
     """
-    Asserts that two multiline strings are equal, ignoring leading and trailing whitespaces in each line.
+    Asserts that two multiline strings are equal, ignoring leading and trailing whitespaces in each
+    line.
 
     Parameters
     ----------
@@ -28,10 +37,11 @@ def assertCodesEqual(string1 : str, string2 : str) -> bool:
             raise AssertionError("String lines are not equal", line1, line2)
 
 
+# pylint: disable-next=invalid-name
 def assertListofCodesEqual(list1: List[str], list2: List[str]) -> bool:
     """
-    Asserts that two lists of code (aka multuline strings, ignoring leading and trailing whitespaces in each line)
-    are equal.
+    Asserts that two lists of code (aka multuline strings, ignoring leading and trailing
+    whitespaces in each line) are equal.
 
     Parameters
     ----------

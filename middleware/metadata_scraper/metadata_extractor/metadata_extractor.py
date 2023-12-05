@@ -1,3 +1,7 @@
+"""
+This module defines the abstract base class 'MetadataExtractor'
+"""
+
 from abc import abstractmethod
 from typing import Dict, List, Optional
 import logging
@@ -21,6 +25,20 @@ class MetadataExtractor(RegisteringABC):
     """
     An abstract base class for metadata extractors (aka parsers).
     It will abstract away how the metadata is embedded in a webpage.
+
+    Methods
+    -------
+        metadata(content, url)
+            An abstract method that is expected to extract metadata from the given content in
+            terms of a nested Dict/List structure. It may throw exceptions -- of type
+            'MetadataParseError'.
+        raw_metadata(content)
+            An abstract method that is expected to extract metadata from the given content in
+            terms of a list of strings. It is expected not to raise exceptions of type
+            'MetadataParseError.
+        get_metadata_or_log_error(content, url)
+            A wrapper method around 'metadata' that catches 'MetadataParseError' excpetions and
+            logs them.
     """
 
     @abstractmethod
@@ -44,7 +62,6 @@ class MetadataExtractor(RegisteringABC):
             List[Dict]
                 A list of dictionaries containing the extracted metadata.
         """
-        pass
 
     @abstractmethod
     def raw_metadata(self, content: str) -> List[str]:
@@ -63,8 +80,6 @@ class MetadataExtractor(RegisteringABC):
             List[str]
                 A list of strings containing the unprased metadata.
         """
-        pass
-
 
     def get_metadata_or_log_error(self, content: str, url: str) -> Optional[List[Dict]]:
         """
@@ -83,15 +98,17 @@ class MetadataExtractor(RegisteringABC):
             Optional[List[Dict]]
                 The extracted metadata if successful, None otherwise.
         """
-        with trace.get_tracer(__name__).start_as_current_span("MetadataExtractor.get_metadata_or_log_error") as otel_span:
+        with trace.get_tracer(__name__).start_as_current_span(
+            "MetadataExtractor.get_metadata_or_log_error") as otel_span:
             try:
                 metadata = self.metadata(content, url)
                 return metadata
-            except Exception as e:
+            except MetadataParseError as e:
                 suspicious_data = ''.join(self.raw_metadata(content))
-                otel_span.set_attribute("FAIRagro.middleware.MetadataExtractor.suspicious_data", suspicious_data)
+                otel_span.set_attribute(
+                    "FAIRagro.middleware.MetadataExtractor.suspicious_data", suspicious_data)
                 otel_span.record_exception(e)
                 msg = "Could not extract meta data, maybe a parsing error?"
                 otel_span.add_event(msg)
-                logging.exception(f"{msg}, suspicious data:\n{suspicious_data}")
+                logging.exception("%s, suspicious data:\n%s", msg, suspicious_data)
                 return None
