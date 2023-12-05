@@ -29,100 +29,96 @@ class MetadataScraperConfig(NamedTuple):
                            "A http session configuration specialized for this repository"] = None
 
 
-class MetadataScraper:
+async def _extract_metadata(
+        url : str,
+        session: HttpSession,
+        extractor: MetadataExtractor) -> Optional[List[Dict]]:
     """
-    A class for scraping research data repositories for metadata.
+    Extracts metadata from the specified URL.
+
+    Parameters
+    ----------
+    url : str
+        The URL from which to extract metadata.
+    session : HttpSession
+        The http session to use to download the URL content.
+    extractor : MetadataExtractor
+        The metadata extractor to use.
+
+    Returns
+    -------
+    Optional[List[Dict]]
+        A dictionary containing the extracted metadata.
     """
+    with trace.get_tracer(__name__).start_as_current_span(
+        "MetadataScraper.extract_metadata") as otel_span:
+        otel_span.set_attribute(SpanAttributes.URL_FULL, url)
+        content = await session.get_decoded_url(url)
+        metadata = extractor.get_metadata_or_log_error(content, url)
+        return metadata
 
-    def __init__(self,
-                 config: MetadataScraperConfig,
-                 default_session_config: HttpSessionConfig) -> None:
-        """
-        Initialize a MetadataScraper object.
+async def _extract_many_metadata(
+        urls: List[str],
+        session: HttpSession,
+        extractor: MetadataExtractor) -> List[Dict]:
+    """
+    Extracts metadata for multiple URLs asynchronously.
 
-        Parameters
-        ----------
-        config : MetadataScraperConfig
-            The config for this scraper object.
-        default_session_config : Dict
-            In case the scraper config does not specify a http_client config, this one will be used.
-
-        Returns
-        -------
-        None
-        """
-        self._config = config
-        self._parser = SitemapParser.create_instance(config.sitemap)
-        self._extractor = MetadataExtractor.create_instance(config.metadata)
-        if config.http_client:
-            self._http_session_config = HttpSessionConfig(**config.http_client)
-        else:
-            self._http_session_config = default_session_config
-
-    async def _extract_metadata(self, url : str, session: HttpSession) -> Optional[List[Dict]]:
-        """
-        Extracts metadata from the specified URL.
-
-        Parameters
-        ----------
-        url : str
-            The URL from which to extract metadata.
+    Parameters
+    ----------
+        urls : List[str]
+            A list of URLs to extract metadata from.
         session : HttpSession
-            The http session to use to download the URL content.
+            The http session to use to download the URLs content.
+        extractor : MetadataExtractor
+            The metadata extractor to use.
 
-        Returns
-        -------
-        Optional[List[Dict]]
-            A dictionary containing the extracted metadata.
-        """
-        with trace.get_tracer(__name__).start_as_current_span(
-            "MetadataScraper.extract_metadata") as otel_span:
-            otel_span.set_attribute(SpanAttributes.URL_FULL, url)
-            content = await session.get_decoded_url(url)
-            metadata = self._extractor.get_metadata_or_log_error(content, url)
-            return metadata
+    Returns
+    -------
+        List[Dict]
+            A list of metadata found at the specified URLs.
+            Note that the metadata entries to not correspond 1:1 to the URLs. Each URL may
+            include several several metadata entries or none (especially in case the
+            metadata extraction failed).
+    """
+    metadata = await asyncio.gather(*[_extract_metadata(url, session, extractor) for url in urls])
+    filtered_metadata = (m for m in metadata if m is not None)
+    result = list(itertools.chain.from_iterable(filtered_metadata))
+    return result
 
-    async def _extract_many_metadata(self, urls: List[str], session: HttpSession) -> List[Dict]:
-        """
-        Extracts metadata for multiple URLs asynchronously.
+async def scrape_repo(
+        config: MetadataScraperConfig,
+        default_session_config: HttpSessionConfig) -> List[Dict]:
+    """
+    Scrapes the configured repository for metadata.
 
-        Parameters
-        ----------
-            urls : List[str]
-                A list of URLs to extract metadata from.
-            session : HttpSession
-                The http session to use to download the URLs content.
+    Parameters
+    ----------
+        config : MetadataScraperConfig
+            The configuration of the repository to scrape.
+        default_session_config : HttpSessionConfig
+            The default http session configuration, used if not specified in the config.
 
-        Returns
-        -------
-            List[Dict]
-                A list of metadata found at the specified URLs.
-                Note that the metadata entries to not correspond 1:1 to the URLs. Each URL may
-                include several several metadata entries or none (especially in case the
-                metadata extraction failed).
-        """
-        metadata = await asyncio.gather(*[self._extract_metadata(url, session) for url in urls])
-        filtered_metadata = (m for m in metadata if m is not None)
-        result = list(itertools.chain.from_iterable(filtered_metadata))
-        return result
+    Returns
+    -------
+        List[Dict]
+            The extracted metadata in terms of python dictonaries.
+    """
 
-    async def scrape_repo(self) -> List[Dict]:
-        """
-        Scrapes the configured repository for metadata.
-
-        Returns
-        -------
-            List[Dict]
-                The extracted metadata in terms of python dictonaries.
-        """
-        with trace.get_tracer(__name__).start_as_current_span(
+    with trace.get_tracer(__name__).start_as_current_span(
             "MetadataScraper.scrape_repo") as otel_span:
-            otel_span.set_attribute(
-                "FAIRagro.middleware.MetadataScraper.repository_name", self._config.name)
-            otel_span.set_attribute(
-                "FAIRagro.middleware.MetadataScraper.repository_sitemap_url", self._config.url)
-            async with HttpSession(self._http_session_config) as session:
-                sitemap = await session.get_decoded_url(self._config.url)
-                urls = self._parser.datasets(sitemap)
-                metadata = await self._extract_many_metadata(urls, session)
-            return metadata
+        otel_span.set_attribute(
+            "FAIRagro.middleware.MetadataScraper.repository_name", config.name)
+        otel_span.set_attribute(
+            "FAIRagro.middleware.MetadataScraper.repository_sitemap_url", config.url)
+        parser = SitemapParser.create_instance(config.sitemap)
+        extractor = MetadataExtractor.create_instance(config.metadata)
+        if config.http_client:
+            http_session_config = HttpSessionConfig(**config.http_client)
+        else:
+            http_session_config = default_session_config
+        async with HttpSession(http_session_config) as session:
+            sitemap = await session.get_decoded_url(config.url)
+            urls = parser.datasets(sitemap)
+            metadata = await _extract_many_metadata(urls, session, extractor)
+        return metadata

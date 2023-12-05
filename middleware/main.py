@@ -36,7 +36,7 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 # Disable pylint warning that imports are not on top. But we need to adapt the import path before.
 # Is there another solution so packages next top the main script can be found?
 # pylint: disable=wrong-import-position
-from metadata_scraper import MetadataScraper, MetadataScraperConfig
+from metadata_scraper import MetadataScraperConfig, scrape_repo
 from http_session import HttpSessionConfig
 from git_repo import GitRepo, GitRepoConfig
 from utils import make_path_absolute
@@ -110,8 +110,7 @@ async def scrape_repo_and_write_to_file(
             A tuple containing the file path and the start timestamp.
     """
     start_timestamp = datetime.datetime.now(pytz.UTC)
-    scraper = MetadataScraper(scraper_config, default_http_config)
-    metadata = await scraper.scrape_repo()
+    metadata = await scrape_repo(scraper_config, default_http_config)
     # We should collect some metrics data, but OpenTelemetry does not yet support transmitting
     # simple synchronous gauge values.
     # count_sites = len(sites)
