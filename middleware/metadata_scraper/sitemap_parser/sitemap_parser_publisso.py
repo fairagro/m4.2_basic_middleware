@@ -1,3 +1,12 @@
+"""
+This module defines an implementation of SitemapParser that parses text sitemaps
+as returned by the research repository Publisso.
+"""
+
+__all__ = []
+__version__ = '0.1.0'
+__author__ = 'brizuela@ipk-gatersleben.de'
+
 import json
 
 from .sitemap_parser import SitemapParser
@@ -7,6 +16,9 @@ BASE_URL = 'https://frl.publisso.de/resource/'
 
 
 class SitemapParserPublisso(SitemapParser):
+    """
+    An implementation class of SitemapParser that parses text sitemaps as returned by Publisso
+    """
 
     def datasets(self, content: str) -> str:
         """
