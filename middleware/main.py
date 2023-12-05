@@ -152,9 +152,9 @@ def commit_to_git(name: str,
     )
     git_repo.add_and_commit([path], msg)
 
-async def main():
+def setup_andconfig() -> dict:
     """
-    The main async function of the basic middleware
+    This function will perform setup work and reads the configuration file.
     """
 
     try:
@@ -187,10 +187,19 @@ async def main():
             config = yaml.safe_load(f)
 
         setup_opentelemetry(config['opentelemetry'])
+
+        return args, config
     # pylint: disable-next=broad-except
     except Exception:
         logging.exception("An error occured during initialization")
         sys.exit(1)
+
+async def main():
+    """
+    The main async function of the basic middleware
+    """
+
+    args, config = setup_andconfig()
 
     with trace.get_tracer(__name__).start_as_current_span("main") as otel_span:
         try:
