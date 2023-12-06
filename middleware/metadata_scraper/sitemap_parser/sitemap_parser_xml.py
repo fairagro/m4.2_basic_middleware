@@ -19,9 +19,10 @@ class SitemapParserXml(SitemapParser):
     to https://sitemaps.org.
     """
 
-    def datasets(self, content: str) -> str:
+    @property
+    def datasets(self,) -> str:
         """
-        A asynchronous generator method that returns the URLs to all datasets of the repository.
+        A generator method that returns the URLs to all datasets of the repository.
 
         Parameters
         ----------
@@ -33,7 +34,7 @@ class SitemapParserXml(SitemapParser):
             str
                 A string with the URL to the next dataset.
         """
-        xml_root = ElementTree.fromstring(content)
+        xml_root = ElementTree.fromstring(self.content)
         for url in xml_root.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}loc' ):
             yield url.text
 

@@ -21,9 +21,10 @@ class SitemapParserOpenAgrar(SitemapParser):
     An implementation class of SitemapParser that parses text sitemaps as returned by OpenAgrar
     """
 
-    def datasets(self, content: str) -> str:
+    @property
+    def datasets(self) -> str:
         """
-        A asynchronous generator method that returns the URLs to all datasets of the repository.
+        A generator method that returns the URLs to all datasets of the repository.
 
         Parameters
         ----------
@@ -35,7 +36,7 @@ class SitemapParserOpenAgrar(SitemapParser):
             str
                 A string with the URL to the next dataset.
         """
-        json_objs = json.loads(content)
+        json_objs = json.loads(self.content)
         mods_ids = [doc['id'] for doc in json_objs['response']['docs']]
         for mid in mods_ids:
             yield f"{BASE_URL}{mid}"

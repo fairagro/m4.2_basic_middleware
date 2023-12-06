@@ -5,14 +5,12 @@ as returned by the research repository Publisso.
 
 __all__ = []
 __version__ = '0.1.0'
-__author__ = 'brizuela@ipk-gatersleben.de'
+__author__ = 'brizuela@ipk-gatersleben.de, c.scharfenberg@zalf.de'
 
 import json
+from typing import List
 
-from .sitemap_parser import SitemapParser
-
-
-BASE_URL = 'https://frl.publisso.de/resource/'
+from .sitemap_parser import SitemapParser, SitemapParseError
 
 
 class SitemapParserPublisso(SitemapParser):
@@ -20,24 +18,32 @@ class SitemapParserPublisso(SitemapParser):
     An implementation class of SitemapParser that parses text sitemaps as returned by Publisso
     """
 
-    def datasets(self, content: str) -> str:
+    @property
+    def has_metadata(self) -> bool:
         """
-        A asynchronous generator method that returns the URLs to all datasets of the repository.
+        A method that returns whether the "sitemap" already contains all needed metadata.
 
-        Parameters
-        ----------
-            content : str
-                The contents of the sitemap to be parsed.
-
-        Yields
-        ------
-            str
-                A string with the URL to the next dataset.
+        Returns
+        -------
+            bool
+                Flag indicating whether the "sitemap" already contains all needed metadata.
         """
-        json_objs = json.loads(content)
-        frl_ids = [obj["@id"] for obj in json_objs]
-        for fid in frl_ids:
-            yield f"{BASE_URL}{fid}.json2"
+        return True
+
+    def get_metadata(self) -> List[dict]:
+        """
+        Return the metadata in case it is already inclued in the sitemap.
+
+        Returns
+        -------
+            list(dict)
+                The metadata in terms of a list of dictionaries.
+        """
+        try:
+            json_objs = json.loads(self.content)
+        except json.JSONDecodeError as e:
+            raise SitemapParseError(e) from e
+        return json_objs
 
 
 SitemapParserPublisso.register_implementation("publisso")
