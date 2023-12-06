@@ -111,14 +111,13 @@ async def scrape_repo(
             "FAIRagro.middleware.MetadataScraper.repository_name", config.name)
         otel_span.set_attribute(
             "FAIRagro.middleware.MetadataScraper.repository_sitemap_url", config.url)
-        parser = SitemapParser.create_instance(config.sitemap)
-        extractor = MetadataExtractor.create_instance(config.metadata)
         if config.http_client:
             http_session_config = HttpSessionConfig(**config.http_client)
         else:
             http_session_config = default_session_config
         async with HttpSession(http_session_config) as session:
-            sitemap = await session.get_decoded_url(config.url)
-            urls = parser.datasets(sitemap)
+            sitemap_content = await session.get_decoded_url(config.url)
+            parser = SitemapParser.create_instance(config.sitemap, sitemap_content)
+            extractor = MetadataExtractor.create_instance(config.metadata)
             metadata = await _extract_many_metadata(urls, session, extractor)
         return metadata
