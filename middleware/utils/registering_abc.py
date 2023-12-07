@@ -37,11 +37,9 @@ class RegisteringABC(ABC):
         RegisteringABC._implementations[identifier] = cls
 
     @classmethod
-    def create_instance(cls: Self, identifier: str) -> Self:
+    def create_instance(cls: Self, identifier: str, *args, **kwargs) -> Self:
         """
         Create an instance of the implementation class based on the identifier.
-        Currently no arguments to the corresponding initialzer are supported
-        (although this cloud easily be changed).
         
         Parameters
         ----------
@@ -60,5 +58,5 @@ class RegisteringABC(ABC):
         """
         implementation_class = RegisteringABC._implementations.get(identifier)
         if implementation_class:
-            return implementation_class()
+            return implementation_class(*args, **kwargs)
         raise ValueError(f"No implementation registered for identifier '{identifier}'")

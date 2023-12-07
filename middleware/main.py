@@ -117,11 +117,10 @@ async def scrape_repo_and_write_to_file(
     # count_metadata = len(metadata)
     path = os.path.join(folder_path, f"{scraper_config.name}.json")
     async with aiofiles.open(path, 'w', encoding='utf-8') as f:
-        await f.write(json.dumps(metadata, indent=2, ensure_ascii=False))
+        await f.write(json.dumps(metadata, indent=2, ensure_ascii=False, sort_keys=True))
     return path, start_timestamp
 
-def commit_to_git(name: str,
-                  sitemap_url: str,
+def commit_to_git(sitemap_url: str,
                   git_repo: GitRepo,
                   path: str,
                   starttime: datetime) -> None:
@@ -130,8 +129,6 @@ def commit_to_git(name: str,
 
     Arguments
     ---------
-        name : str
-            The name of the repository.
         sitemap_url : str
             The URL of the sitemap.
         git_repo : GitRepo
@@ -147,8 +144,7 @@ def commit_to_git(name: str,
     """
     formatted_time = starttime.strftime('%Y-%m-%d %H:%M:%S.%f %Z%z')
     msg = (
-        f"FAIRagro middleware scraper for repo '{name}' with sitemap {sitemap_url}, started "
-        f"at {formatted_time}"
+        f"harvested by FAIRargo middleware at {formatted_time} from {sitemap_url}"
     )
     git_repo.add_and_commit([path], msg)
 
@@ -221,8 +217,7 @@ async def main():
                 path, starttime = await scrape_repo_and_write_to_file(
                     local_path, scraper_config, default_http_config)
                 if git_repo:
-                    commit_to_git(
-                        scraper_config.name, scraper_config.url, git_repo, path, starttime)
+                    commit_to_git(scraper_config.url, git_repo, path, starttime)
 
             if git_repo:
                 git_repo.push()

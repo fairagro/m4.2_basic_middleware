@@ -22,7 +22,7 @@ class MetadataScraperConfig(NamedTuple):
     name: Annotated[str, "The name of the research data repository to scrape"]
     url: Annotated[str, "The sitemap URL of the research data repository to scrape"]
     sitemap: Annotated[str, "The identifier of the sitemap parser to use"]
-    metadata: Annotated[str, "The identifier of the metadata extractor to use"]
+    metadata: Annotated[Optional[str], "The identifier of the metadata extractor to use"] = None
     # Unfortunately it's not feasible to nest NamedTuple's, so we use a dict here
     # instead of a HttpSessionConfig instance.
     http_client: Annotated[Optional[Dict],
@@ -111,14 +111,16 @@ async def scrape_repo(
             "FAIRagro.middleware.MetadataScraper.repository_name", config.name)
         otel_span.set_attribute(
             "FAIRagro.middleware.MetadataScraper.repository_sitemap_url", config.url)
-        parser = SitemapParser.create_instance(config.sitemap)
-        extractor = MetadataExtractor.create_instance(config.metadata)
         if config.http_client:
             http_session_config = HttpSessionConfig(**config.http_client)
         else:
             http_session_config = default_session_config
         async with HttpSession(http_session_config) as session:
-            sitemap = await session.get_decoded_url(config.url)
-            urls = parser.datasets(sitemap)
+            sitemap_content = await session.get_decoded_url(config.url)
+            parser = SitemapParser.create_instance(config.sitemap, sitemap_content)
+            if parser.has_metadata:
+                return parser.metadata
+            urls = parser.datasets
+            extractor = MetadataExtractor.create_instance(config.metadata)
             metadata = await _extract_many_metadata(urls, session, extractor)
-        return metadata
+            return metadata

@@ -5,14 +5,12 @@ as returned by the research repository Publisso.
 
 __all__ = []
 __version__ = '0.1.0'
-__author__ = 'brizuela@ipk-gatersleben.de'
+__author__ = 'brizuela@ipk-gatersleben.de, carsten.scharfenberg@zalf.de'
 
-import json
+
+from typing import List
 
 from .sitemap_parser import SitemapParser
-
-
-BASE_URL = 'https://atlas.thuenen.de/api/v2/resources/'
 
 
 class SitemapParserThunenAtlas(SitemapParser):
@@ -20,24 +18,28 @@ class SitemapParserThunenAtlas(SitemapParser):
     An implementation class of SitemapParser that parses text sitemaps as returned by Publisso
     """
 
-    def datasets(self, content: str) -> str:
+    @property
+    def has_metadata(self) -> bool:
         """
-        A asynchronous generator method that returns the URLs to all datasets of the repository.
+        A method that returns whether the "sitemap" already contains all needed metadata.
 
-        Parameters
-        ----------
-            content : str
-                The contents of the sitemap to be parsed.
-
-        Yields
-        ------
-            str
-                A string with the URL to the next dataset.
+        Returns
+        -------
+            bool
+                Flag indicating whether the "sitemap" already contains all needed metadata.
         """
-        json_objs = json.loads(content)
-        ta_ids = [obj['pk'] for obj in json_objs['resources']]
-        for taid in ta_ids:
-            yield f"{BASE_URL}{taid}"
+        return True
+
+    def get_metadata(self) -> List[dict]:
+        """
+        Return the metadata in case it is already inclued in the sitemap.
+
+        Returns
+        -------
+            List[dict]
+                The metadata in terms of a list of dictionaries.
+        """
+        return self.parse_content_as_json()['resources']
 
 
 SitemapParserThunenAtlas.register_implementation("thunen_atlas")
