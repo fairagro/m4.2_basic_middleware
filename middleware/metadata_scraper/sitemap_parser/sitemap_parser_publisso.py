@@ -7,10 +7,10 @@ __all__ = []
 __version__ = '0.1.0'
 __author__ = 'brizuela@ipk-gatersleben.de, c.scharfenberg@zalf.de'
 
-import json
+
 from typing import List
 
-from .sitemap_parser import SitemapParser, SitemapParseError
+from .sitemap_parser import SitemapParser
 
 
 class SitemapParserPublisso(SitemapParser):
@@ -36,14 +36,10 @@ class SitemapParserPublisso(SitemapParser):
 
         Returns
         -------
-            list(dict)
+            List[dict]
                 The metadata in terms of a list of dictionaries.
         """
-        try:
-            json_objs = json.loads(self.content)
-        except json.JSONDecodeError as e:
-            raise SitemapParseError(e) from e
-        return json_objs
+        return self.parse_content_as_json()
 
 
 SitemapParserPublisso.register_implementation("publisso")

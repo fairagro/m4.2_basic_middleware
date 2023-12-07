@@ -3,6 +3,7 @@ This module define the abtract base class for sitemap parsers.
 """
 
 from typing import List
+import json
 
 from utils.registering_abc import RegisteringABC
 
@@ -95,3 +96,19 @@ class SitemapParser(RegisteringABC):
                 A list of dictionaries containing the extracted metadata.
         """
         return []
+
+    def parse_content_as_json(self) -> List[dict]:
+        """
+        A utility method to be used by implementations of SitemapParser when overriding
+        'get_metadata'. It will parse the sitempa content as JSON and return the result.
+
+        Returns
+        -------
+            List[dict]
+                A list of dictionaries containing the parsed JSON.
+        """
+        try:
+            json_objs = json.loads(self.content)
+        except json.JSONDecodeError as e:
+            raise SitemapParseError(e) from e
+        return json_objs
