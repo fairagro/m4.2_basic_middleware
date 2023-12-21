@@ -142,7 +142,7 @@ class GitRepo:
             # But for my git setup on Windwos, /dev/null is the correct value -- probably because
             # it uses an MSYS-based ssh.
             os.environ['GIT_SSH_COMMAND'] = \
-                f'ssh -F /dev/null -i {GitRepo._make_ssh_key_path(ssh_key_path)}'
+                f'ssh -F /dev/null -o StrictHostKeyChecking=no -i {GitRepo._make_ssh_key_path(ssh_key_path)}'
 
         # Initialize existing repo or clone it, if this hasn't been done yet
         try:
