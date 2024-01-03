@@ -141,8 +141,9 @@ class GitRepo:
             # Note: actutally /dev/null is OS-dependent. There is os.devnull to cope with this.
             # But for my git setup on Windwos, /dev/null is the correct value -- probably because
             # it uses an MSYS-based ssh.
+            os_key_path = GitRepo._make_ssh_key_path(ssh_key_path)
             os.environ['GIT_SSH_COMMAND'] = \
-                f'ssh -F /dev/null -o StrictHostKeyChecking=no -i {GitRepo._make_ssh_key_path(ssh_key_path)}'
+                f'ssh -F /dev/null -o StrictHostKeyChecking=no -i {os_key_path}'
 
         # Initialize existing repo or clone it, if this hasn't been done yet
         try:
