@@ -19,19 +19,19 @@ FROM cgr.dev/chainguard/wolfi-base
 ARG python_version=3.11
 # Set the working directory in the container
 WORKDIR /middleware
-# We need python and git in the runtime image and ensure the middleware folder belongs to nonroot
+# We need python, git and ssh in the runtime image
 RUN apk add --no-cache python-${python_version} py${python_version}-setuptools git openssh-client
 # Copy the application from host
 COPY middleware/ /middleware/
 # copy python packages from builder stage
 COPY --from=builder /home/nonroot/.local /home/nonroot/.local
+# Create output directory (mountpoint) and set permissions of the middleware folder
 RUN mkdir /middleware/output && \
     chown -R nonroot:nonroot /middleware/
 # Set the user to nonroot. It's defined in the Wolfi base image with the user id 65532
 USER nonroot
+# Mount a volume for the output
 VOLUME /middleware/output
-# # copy python "binaries"
-# COPY --from=builder /usr/local/bin /usr/local/bin
 # Set the command to run when the container starts
 CMD [ "python", "main.py", "-c", "config.yml" ]
 
