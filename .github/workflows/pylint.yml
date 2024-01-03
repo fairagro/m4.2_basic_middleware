@@ -75,7 +75,6 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
           push: ${{
             github.event.base_ref =='refs/heads/main' &&
             github.ref_type == 'tag' }}
