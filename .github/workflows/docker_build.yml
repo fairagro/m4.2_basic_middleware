@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  docker:
+  docker_build:
     runs-on: ubuntu-latest
     env:
       IMG_NAME: ${{ github.repository }}
