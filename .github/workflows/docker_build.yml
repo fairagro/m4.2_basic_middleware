@@ -1,0 +1,76 @@
+name: Docker Build
+
+# These triggers were copied from the documentation:
+# https://github.com/docker/metadata-action#basic
+# It's a bit unclear to me, why we trigger on pull_requests but then skip steps in this case.
+# I would think that all remaing steps have no permanent effect, except -- maybe -- if there are
+# side effects I'm not aware off.
+# -> The attempt of an answer: the docker image is build, but not pushed. So we would notice
+# problems with the build.
+on:
+  # A successful merge request to main will result into a push to main.
+  push:
+    branches:
+      - "main"
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - "main"
+  # For manual triggering
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docker_build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - name: Checkout git repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # This is needed for GitVersion not to crash
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v0
+        with:
+          versionSpec: "5.x"
+          preferLatestVersion: true
+
+      - name: Determine Version
+        id: gitversion # id to later be referenced
+        uses: gittools/actions/gitversion/execute@v0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker metadata
+        id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: zalf/m4.2_basic_middleware
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.gitversion.outputs.SemVer }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.gitversion.outputs.MajorMinor }}
+            type=raw,value={{sha}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Secrets are managed within the github GUI
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
