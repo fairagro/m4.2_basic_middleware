@@ -72,8 +72,8 @@ jobs:
         with:
           images: zalf/m4.2_basic_middleware
           tags: |
-            type=semver,pattern={{version}},value=${{ needs.version.SemVer }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.MajorMinor }}
+            type=semver,pattern={{version}},value=${{ needs.version.outputs.SemVer }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.outputs.MajorMinor }}
             type=raw,value={{sha}}
           # type=raw,value=latest,enable={{is_default_branch}}
 
