@@ -49,3 +49,18 @@ A few notes on this docker run call:
 ## Notes on the python version ##
 
 Older python versions than 3.11 do not support the type hint `Annotated[Optional[...]]` which we make use of. Newer python versions do not include the former standard library `imp` any more that is used by the required library `pyRfda3`. Unfortunately there is no maintainer for any more for `pyRfda3`. While the `imp` import issue has been fixed in the git repo, that version is not available through `pip`. The correct way to deal with this would be, either to take over maintainership of `pyRfda3` or to replace or contribute to the `extruct` library which makes use of `pyRfd3`.
+
+## On the github "pipeline" ##
+
+This repo makes use of github features to work as CI pipeline.
+
+The main idea is: you cannot deploy to the main branch as it is protected by github. Instead you have to create a feature branch and create a pull request
+for that branch when you are finished. Merging that pull request requires a code review within in github.
+
+There are also github actions that perform typical CI tasks:
+
+- `Python Code Check`: it will be triggered on every push. It will lint and unit test your code.
+
+- `Docker Build`: it will also be triggered on every push to build a docker image. In case it's not a push to the `main` branch, that image will be thrown
+  away immediately. So in this case this is merely a check if the image can be build successfully. The final push to `main`, resulting from a pull request
+  will upload the build image to dockerhub, though. The dockerhub credentials are stored as github secrets.
