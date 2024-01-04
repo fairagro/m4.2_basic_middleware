@@ -51,6 +51,16 @@ jobs:
         python-version: ["3.11"]
 
     steps:
+      # This also checks out the repository
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v0
+        with:
+          versionSpec: "5.x"
+          preferLatestVersion: true
+
       - name: Determine Version
         id: gitversion # id to later be referenced
         uses: gittools/actions/gitversion/execute@v0
@@ -89,10 +99,6 @@ jobs:
           echo "CommitsSinceVersionSourcePadded: ${{ steps.gitversion.outputs.commitsSinceVersionSourcePadded }}"
           echo "UncommittedChanges: ${{ steps.gitversion.outputs.uncommittedChanges }}"
           echo "CommitDate: ${{ steps.gitversion.outputs.commitDate }}"
-
-      # # This also checks out the repository
-      # - name: Set up Docker Buildx
-      #   uses: docker/setup-buildx-action@v3
 
       # - name: Docker metadata
       #   id: metadata
