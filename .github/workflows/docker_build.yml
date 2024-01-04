@@ -78,7 +78,7 @@ jobs:
         with:
           images: zalf/m4.2_basic_middleware
           tags: |
-            type=semver,pattern={{ steps.gitversion.outputs.SemVer }}
+            type=semver,pattern={{version}},value={{ steps.gitversion.outputs.SemVer }}
             type=raw,value={{sha}},enable=${{ github.ref_type != 'tag' }}
 
       # Secrets are managed within the github GUI
