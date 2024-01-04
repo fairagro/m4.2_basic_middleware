@@ -5,6 +5,8 @@ name: Docker Build
 # It's a bit unclear to me, why we trigger on pull_requests but then skip steps in this case.
 # I would think that all remaing steps have no permanent effect, except -- maybe -- if there are
 # side effects I'm not aware off.
+# -> The attempt of an answer: the docker image is build, but not pushed. So we would notice
+# problems with the build.
 on:
   # A successful merge request to main will result into a push to main.
   push:
