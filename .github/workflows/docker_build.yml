@@ -30,7 +30,9 @@ jobs:
       contents: write
     outputs:
       SemVer: ${{ steps.gitversion.outputs.SemVer }}
-      MajorMinor: ${{ steps.gitversion.outputs.MajorMinor }}
+      Major: ${{ steps.gitversion.outputs.Major }}
+      Minor: ${{ steps.gitversion.outputs.Minor }}
+      Patch: ${{ steps.gitversion.outputs.Patch }}
     steps:
       - name: Checkout git repo
         uses: actions/checkout@v3
@@ -73,7 +75,8 @@ jobs:
           images: zalf/m4.2_basic_middleware
           tags: |
             type=semver,pattern={{version}},value=${{ needs.version.outputs.SemVer }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.outputs.MajorMinor }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.outputs.Major }}.${{ needs.version.outputs.Minor }}
+            type=semver,pattern={{major}},value=${{ needs.version.outputs.Major }}
             type=raw,value={{sha}}
           # type=raw,value=latest,enable={{is_default_branch}}
 
