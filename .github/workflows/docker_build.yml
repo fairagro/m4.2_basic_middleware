@@ -14,8 +14,6 @@ permissions:
 jobs:
   docker_build:
     runs-on: ubuntu-latest
-    env:
-      IMG_NAME: ${{ github.repository }}
     strategy:
       matrix:
         python-version: ["3.11"]
@@ -78,7 +76,7 @@ jobs:
         id: metadata
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMG_NAME }}
+          images: zalf/m4.2_basic_middleware
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
