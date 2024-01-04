@@ -77,8 +77,7 @@ jobs:
             type=semver,pattern={{version}},value=${{ needs.version.outputs.SemVer }}
             type=raw,value=${{ needs.version.outputs.Major }}.${{ needs.version.outputs.Minor }}
             type=raw,value=${{ needs.version.outputs.Major }}
-            type=raw,value={{sha}}
-          # type=raw,value=latest,enable={{is_default_branch}}
+          # type=raw,value={{sha}}
 
       # Secrets are managed within the github GUI
       - name: Log in to Docker Hub
