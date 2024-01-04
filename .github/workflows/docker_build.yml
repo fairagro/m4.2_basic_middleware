@@ -24,12 +24,13 @@ permissions:
   contents: read
 
 jobs:
-  docker_build:
+  version:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-
+    permissions:
+      contents: write
+    outputs:
+      SemVer: ${{ steps.gitversion.outputs.SemVer }}
+      MajorMinor: ${{ steps.gitversion.outputs.MajorMinor }}
     steps:
       - name: Checkout git repo
         uses: actions/checkout@v3
@@ -54,6 +55,14 @@ jobs:
           git tag -a v${{ steps.gitversion.outputs.SemVer }} -m "release ${{ steps.gitversion.outputs.SemVer }}"
           git push origin v${{ steps.gitversion.outputs.SemVer }}
 
+  docker_build:
+    runs-on: ubuntu-latest
+    needs: version
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -63,10 +72,10 @@ jobs:
         with:
           images: zalf/m4.2_basic_middleware
           tags: |
-            type=semver,pattern={{version}},value=${{ steps.gitversion.outputs.SemVer }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ steps.gitversion.outputs.MajorMinor }}
+            type=semver,pattern={{version}},value=${{ needs.version.gitversion.SemVer }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.gitversion.MajorMinor }}
             type=raw,value={{sha}}
-            type=raw,value=latest,enable={{is_default_branch}}
+          # type=raw,value=latest,enable={{is_default_branch}}
 
       # Secrets are managed within the github GUI
       - name: Log in to Docker Hub
