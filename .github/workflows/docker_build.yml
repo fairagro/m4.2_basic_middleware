@@ -1,12 +1,8 @@
 name: Docker Build
 
-# These triggers were copied from the documentation:
-# https://github.com/docker/metadata-action#basic
-# It's a bit unclear to me, why we trigger on pull_requests but then skip steps in this case.
-# I would think that all remaing steps have no permanent effect, except -- maybe -- if there are
-# side effects I'm not aware off.
-# -> The attempt of an answer: the docker image is build, but not pushed. So we would notice
-# problems with the build.
+# Although we only want to push docker images to docker hub on pushes to main (that result from
+# pull requests), we also subscribe to the pull request event itself. In this case we won't upload
+# the image, but still build it so we are noticed if it fails.
 on:
   # A successful merge request to main will result into a push to main.
   push:
@@ -25,7 +21,7 @@ jobs:
   version:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # so we're allowed to push the new tag
     outputs:
       SemVer: ${{ steps.gitversion.outputs.SemVer }}
       Major: ${{ steps.gitversion.outputs.Major }}
@@ -75,7 +71,6 @@ jobs:
             type=semver,pattern={{version}},value=${{ needs.version.outputs.SemVer }}
             type=raw,value=${{ needs.version.outputs.Major }}.${{ needs.version.outputs.Minor }}
             type=raw,value=${{ needs.version.outputs.Major }}
-          # type=raw,value={{sha}}
 
       # Secrets are managed within the github GUI
       - name: Log in to Docker Hub
