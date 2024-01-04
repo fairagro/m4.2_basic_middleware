@@ -1,6 +1,2 @@
 mode: Mainline
 increment: None
-branches: {}
-ignore:
-  sha: []
-merge-message-formats: {}
