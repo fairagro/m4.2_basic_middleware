@@ -46,6 +46,12 @@ jobs:
         id: gitversion # id to later be referenced
         uses: gittools/actions/gitversion/execute@v0
 
+      - name: Create version tag
+        if: github.event_name != 'pull_request'
+        run: |
+          git tag -a v${{ steps.gitversion.outputs.SemVer }} -m "release ${{ steps.gitversion.outputs.SemVer }}"
+          git push origin v${{ steps.gitversion.outputs.SemVer }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
