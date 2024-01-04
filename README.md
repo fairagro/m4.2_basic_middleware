@@ -48,7 +48,10 @@ A few notes on this docker run call:
 
 ## Notes on the python version ##
 
-Older python versions than 3.11 do not support the type hint `Annotated[Optional[...]]` which we make use of. Newer python versions do not include the former standard library `imp` any more that is used by the required library `pyRfda3`. Unfortunately there is no maintainer for any more for `pyRfda3`. While the `imp` import issue has been fixed in the git repo, that version is not available through `pip`. The correct way to deal with this would be, either to take over maintainership of `pyRfda3` or to replace or contribute to the `extruct` library which makes use of `pyRfd3`.
+Older python versions than 3.11 do not support the type hint `Annotated[Optional[...]]` which we make use of. Newer python versions do not include the
+former standard library `imp` any more that is used by the required library `pyRfda3`. Unfortunately there is no maintainer for any more for `pyRfda3`.
+While the `imp` import issue has been fixed in the git repo, that version is not available through `pip`. The correct way to deal with this would be,
+either to take over maintainership of `pyRfda3` or to replace or contribute to the `extruct` library which makes use of `pyRfd3`.
 
 ## On the github "pipeline" ##
 
