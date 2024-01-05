@@ -68,6 +68,12 @@ There are also github actions that perform typical CI tasks:
   away immediately. So in this case this is merely a check if the image can be build successfully. The final push to `main`, resulting from a pull request
   will upload the build image to dockerhub, though. The dockerhub credentials are stored as github secrets.
 
+To download the resulting image from dockerhub:
+
+```powershell
+docker pull zalf/fairagro_basic_middleware
+```
+
 ## Versioning ##
 
 This repo uses [Semantic Versioning](https://semver.org/). Every commit to the main branch (aka the result of each pull request) will be tagged with a
