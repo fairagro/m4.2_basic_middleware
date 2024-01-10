@@ -81,7 +81,8 @@ async def _extract_many_metadata(
             include several several metadata entries or none (especially in case the
             metadata extraction failed).
     """
-    metadata = await asyncio.gather(*[_extract_metadata(url, session, extractor) for url in urls])
+    extractors = [_extract_metadata(url, session, extractor) for url in urls]
+    metadata = await asyncio.gather(*extractors)
     filtered_metadata = (m for m in metadata if m is not None)
     result = list(itertools.chain.from_iterable(filtered_metadata))
     failures = sum((1 for m in metadata if m is None), 0)
