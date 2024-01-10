@@ -5,7 +5,7 @@ This module defines the class 'MetadataScraper' and th corresponding class
 
 import asyncio
 import itertools
-from typing import Annotated, Dict, List, NamedTuple, Optional
+from typing import Annotated, Dict, List, NamedTuple, Optional, Tuple
 from opentelemetry import trace
 from opentelemetry.semconv.trace import SpanAttributes
 
@@ -51,7 +51,7 @@ async def _extract_metadata(
         A dictionary containing the extracted metadata.
     """
     with trace.get_tracer(__name__).start_as_current_span(
-        "MetadataScraper.extract_metadata") as otel_span:
+            "MetadataScraper.extract_metadata") as otel_span:
         otel_span.set_attribute(SpanAttributes.URL_FULL, url)
         content = await session.get_decoded_url(url)
         metadata = extractor.get_metadata_or_log_error(content, url)
@@ -60,7 +60,7 @@ async def _extract_metadata(
 async def _extract_many_metadata(
         urls: List[str],
         session: HttpSession,
-        extractor: MetadataExtractor) -> List[Dict]:
+        extractor: MetadataExtractor) -> Tuple[List[Dict], Dict]:
     """
     Extracts metadata for multiple URLs asynchronously.
 
@@ -84,11 +84,16 @@ async def _extract_many_metadata(
     metadata = await asyncio.gather(*[_extract_metadata(url, session, extractor) for url in urls])
     filtered_metadata = (m for m in metadata if m is not None)
     result = list(itertools.chain.from_iterable(filtered_metadata))
-    return result
+    failures = sum((1 for m in metadata if m is None), 0)
+    report = {
+        'valid_entries': len(result),
+        'failed_entries': failures
+    }
+    return result, report
 
 async def scrape_repo(
         config: MetadataScraperConfig,
-        default_session_config: HttpSessionConfig) -> List[Dict]:
+        default_session_config: HttpSessionConfig) -> Tuple[List[Dict], Dict]:
     """
     Scrapes the configured repository for metadata.
 
@@ -122,5 +127,5 @@ async def scrape_repo(
                 return parser.metadata
             urls = parser.datasets
             extractor = MetadataExtractor.create_instance(config.metadata)
-            metadata = await _extract_many_metadata(urls, session, extractor)
-            return metadata
+            metadata, report = await _extract_many_metadata(urls, session, extractor)
+            return metadata, report
