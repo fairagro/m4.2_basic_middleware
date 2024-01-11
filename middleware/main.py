@@ -39,7 +39,6 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from metadata_scraper import MetadataScraperConfig, scrape_repo
 from http_session import HttpSessionConfig
 from git_repo import GitRepo, GitRepoConfig
-from utils import make_path_absolute
 
 
 def setup_opentelemetry(otlp_config: dict) -> None:
@@ -174,12 +173,11 @@ def setup_andconfig() -> dict:
         )
         args = parser.parse_args()
 
-        config_path = make_path_absolute(args.config)
-        if not os.path.isfile(config_path):
-            raise FileNotFoundError(f"Config file {config_path} does not exist.")
+        if not os.path.isfile(args.config):
+            raise FileNotFoundError(f"Config file {args.config} does not exist.")
 
         # load config
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(args.config, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
 
         setup_opentelemetry(config['opentelemetry'])
@@ -207,7 +205,7 @@ async def main():
                 git_repo.pull()
             else:
                 git_repo = None
-                local_path = make_path_absolute(config['git']['local_path'])
+                local_path = config['git']['local_path']
                 os.makedirs(local_path, exist_ok=True)
 
             default_http_config = HttpSessionConfig(**config['http_client'])

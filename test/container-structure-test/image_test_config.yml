@@ -20,7 +20,7 @@ http_client:
   connect_timeout: 10
 
 # Configures the git client
-# Note on paths: relative paths refer to the directory the middleware script resides in.
+# Note on paths: relative paths refer to the current working directory.
 # You can omit the ssh_key_path if you have a local git setup with your personal key.
 # If branch is omitted, the main branch is used
 git:
