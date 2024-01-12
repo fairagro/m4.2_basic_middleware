@@ -19,7 +19,8 @@ pip install -r requirements.txt
 Running the script is very simple:
 
 ```powershell
-python middleware\main.py -c config.yml [--no-git]
+cd middleware
+python main.py -c ..\config.yml [--no-git]
 ```
 
 ## Configuration ##
