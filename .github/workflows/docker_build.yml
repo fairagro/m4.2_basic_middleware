@@ -72,14 +72,6 @@ jobs:
             type=raw,value=${{ needs.version.outputs.Major }}.${{ needs.version.outputs.Minor }}
             type=raw,value=${{ needs.version.outputs.Major }}
 
-      # Secrets are managed within the github GUI
-      - name: Log in to Docker Hub
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USER }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Build and export to Docker
         uses: docker/build-push-action@v5
         with:
@@ -90,7 +82,16 @@ jobs:
         uses: plexsystems/container-structure-test-action@v0.1.0
         with:
           image: middleware:test
-          config: test/container-structure-test/container-structure-test-config.yml
+          # config: test/container-structure-test/container-structure-test-config.yml
+          config: config.yml
+
+      # Secrets are managed within the github GUI
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and Push
         uses: docker/build-push-action@v5
