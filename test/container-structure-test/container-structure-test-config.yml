@@ -13,3 +13,23 @@ metadataTest:
   cmd: ["python", "main.py", "-c", "config.yml"]
   workdir: /middleware
   user: nonroot
+
+commandTests:
+  - name: "middleware test run"
+    command: "python"
+    args:
+      [
+        "middleware/main.py",
+        "-c",
+        "test/container-structure-test/config.yml",
+        "--no-git",
+      ]
+    expectedOutput:
+      - |-
+        [
+          {
+            "failed_entries": 0,
+            "repo_name": "test",
+            "valid_entries": 1
+          }
+        ]
