@@ -23,6 +23,8 @@ WORKDIR /middleware
 RUN apk add --no-cache python-${python_version} py${python_version}-setuptools git openssh-client
 # Copy the application from host
 COPY middleware/ /middleware/
+# We also copy the container-structure-test environment. This make it a lot easier to test the resulting container.
+COPY test/container-structure-test /middleware/test/container-structure-test
 # copy python packages from builder stage
 COPY --from=builder /home/nonroot/.local /home/nonroot/.local
 # Create output directory (mountpoint) and set permissions of the middleware folder

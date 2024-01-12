@@ -19,9 +19,9 @@ commandTests:
     command: "python"
     args:
       [
-        "middleware/main.py",
+        "main.py",
         "-c",
-        "test/container-structure-test/config.yml",
+        "test/container-structure-test/image_test_config.yml",
         "--no-git",
       ]
     expectedOutput:

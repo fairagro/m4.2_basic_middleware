@@ -32,8 +32,13 @@ The script reads in a configuration file. This file can be specified via the com
 There is a Wolfi-based `Dockerfile` to build a docker image:
 
 ```powershell
-docker build -t middleware:test .
+docker build `
+  -t middleware:test `
+  --label org.opencontainers.image.source=https://github.com/fairagro/m4.2_basic_middleware `
+  --label org.opencontainers.image.title=m4.2_basic_middleware .
 ```
+
+Note: we set these two labels so the resulting image will pass our `container-structure-test`s (see below).
 
 To run this image, please use this command:
 
@@ -132,9 +137,19 @@ This repository currently has two distinct sets of automated tests:
 
   ```powershell
   docker run --user 65532 --rm `
-    -v .\test\container-structure-test\image_test_config.yml:/middleware/config.yml `
-    -v .\ssh_key.pem:/middleware/ssh_key.pem `
-    -v .\test:/middleware/test `
     middleware:test `
-    python main.py -c config.yml --no-git
+    python main.py -c test/container-structure-test/image_test_config.yml --no-git
   ```
+
+  Note: we've copied the `test/container-structure-test` folder into the image, using the docker file. Alternatively the folder can be mounted into the image, but
+  this makes things complicated when using `container-structure-test`. This clutters the image with some unnessary files in production, but as far as I can tell, they
+  are not harmful.
+
+  To run the `container-structure-test` itself:
+
+  ```powershell
+  container-structure-test test `
+    --image middleware:test `
+    --config .\test\container-structure-test\container-structure-test-config.yml
+  ```
+  
