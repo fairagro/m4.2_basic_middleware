@@ -1,36 +1,20 @@
-# The list of repositories to be harvested. The name will be used in logging/tracing and to name the resulting file.
-# The url denotes the so-called sitemap of the repository (at best it's really a sitemap).
-# The sitemap specifies the parser for the sitemap url above. Currently two are available:
-#   - xml (for sitemaps conforming to the xml standard defined a https://sitemaps.org)
-#   - openagrar (the sitemap conists of a list of datasets from which the ID needs to be extracted and appended to
-#               the base url for downloading datasets)
-# metadata denotes the metadata parser. Currently two are available:
-#   - embedded_jsonld (for schema.org JSON-LD metadata embedded into HTML)
-#   - jsonld (for standalone schema.org JSON-LD files)
+# A local sitemap for testing the container
 sitemaps:
   - name: test
     url: file://./test/container-structure-test/test_sitemap.xml
     sitemap: xml
     metadata: embedded_jsonld
 
-# Configures the HTTP client uses to download sitemaps and datasets
+# This config is currently required even if it is not used
 http_client:
   connection_limit: 20
   receive_timeout: 120
   connect_timeout: 10
 
-# Configures the git client
-# Note on paths: relative paths refer to the current working directory.
-# You can omit the ssh_key_path if you have a local git setup with your personal key.
-# If branch is omitted, the main branch is used
+# This config is required even if do not use git, because we need a local working directory in any
+# case.
 git:
-  repo_url: git@github.com:fairagro/middleware_repo.git
-  branch: main
-  ssh_key_path: ../ssh_key.pem
-  local_path: ../output
-  user_name: "FAIRagro middleware"
-  user_email: "middleware@fairagro.net"
+  local_path: output
 
-# If you operate an opentelemetry endpoint you can configure it here
+# This config is required
 opentelemetry: {}
-#  endpoint:
