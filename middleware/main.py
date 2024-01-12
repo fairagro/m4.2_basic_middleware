@@ -114,7 +114,7 @@ async def scrape_repo_and_write_to_file(
     # simple synchronous gauge values.
     # count_sites = len(sites)
     # count_metadata = len(metadata)
-    path = os.path.join(folder_path, f"{scraper_config.name}.json")
+    path = os.path.join(folder_path, f'{scraper_config.name}.json')
     async with aiofiles.open(path, 'w', encoding='utf-8') as f:
         await f.write(json.dumps(metadata, indent=2, ensure_ascii=False, sort_keys=True))
     return path, start_timestamp, report
@@ -143,7 +143,7 @@ def commit_to_git(sitemap_url: str,
     """
     formatted_time = starttime.strftime('%Y-%m-%d %H:%M:%S.%f %Z%z')
     msg = (
-        f"harvested by FAIRargo middleware at {formatted_time} from {sitemap_url}"
+        f'harvested by FAIRargo middleware at {formatted_time} from {sitemap_url}'
     )
     git_repo.add_and_commit([path], msg)
 
@@ -174,7 +174,7 @@ def setup_andconfig() -> dict:
         args = parser.parse_args()
 
         if not os.path.isfile(args.config):
-            raise FileNotFoundError(f"Config file {args.config} does not exist.")
+            raise FileNotFoundError(f'Config file {args.config} does not exist.')
 
         # load config
         with open(args.config, 'r', encoding='utf-8') as f:
