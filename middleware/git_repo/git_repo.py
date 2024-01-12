@@ -133,8 +133,9 @@ class GitRepo:
         # find out local repo path
         local_path = self._config.local_path
 
-        # find the ssh key and use it
-        ssh_key_path = self._config.ssh_key_path
+        # find the ssh key and use it. We need an absolute path for this so git can find it.
+        # no matter which is the current working directory.
+        ssh_key_path = os.path.abspath(self._config.ssh_key_path)
         if ssh_key_path:
             # Note: actutally /dev/null is OS-dependent. There is os.devnull to cope with this.
             # But for my git setup on Windwos, /dev/null is the correct value -- probably because
