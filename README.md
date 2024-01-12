@@ -38,7 +38,10 @@ docker build -t middleware:test .
 To run this image, please use this command:
 
 ```powershell
-docker run --user 65532 -v .\config.yml:/middleware/utils/config.yml -v .\ssh_key.pem:/middleware/ssh_key.pem --rm middleware:test
+docker run --rm --user 65532 `
+  -v .\config.yml:/middleware/config.yml `
+  -v .\ssh_key.pem:/middleware/ssh_key.pem `
+  middleware:test
 ```
 
 A few notes on this docker run call:
@@ -100,3 +103,38 @@ BREAKING CHANGE: <description>
 
 The scope denotes the part of your project you're working on -- e.g 'frontend', 'backend', 'parser', etc. Currently there are no defined scopes
 for this repo.
+
+## About Testing ##
+
+This repository currently has two distinct sets of automated tests:
+
+- [Python unittests](https://docs.python.org/3/library/unittest.html). Python packages in the source tree are expected to define a `test` directory that contains the
+  corresponding unit test. Note that not every package current implement unit tests. To run the unit tests you can use this command:
+
+  ```powershell
+  python -m unittest discover -s middleware
+  ```
+
+- [Container structure tests](https://github.com/GoogleContainerTools/container-structure-test). These tests are used to check if ready built docker containers
+  work as expected. You can find everything related to these tests in the folder `test/container-structure-test`. This folder includes a special middleware config
+  that is used for testing, without accessing real research repositories. You will also find the actual `container-structure-test` config that defines the actual tests
+  as well as two mock files that define a sitemap file and a dataset web page to be used by the tests.
+
+  To run the test setup (whithout actual testing):
+
+  ```powershell
+  python middleware\main.py `
+    -c test\container-structure-test\image_test_config.yml `
+    --no-git
+  ```
+
+  using a docker container instead:
+
+  ```powershell
+  docker run --user 65532 --rm `
+    -v .\test\container-structure-test\image_test_config.yml:/middleware/config.yml `
+    -v .\ssh_key.pem:/middleware/ssh_key.pem `
+    -v .\test:/middleware/test `
+    middleware:test `
+    python main.py -c config.yml --no-git
+  ```
