@@ -5,7 +5,10 @@ HttpSessionConfig.
 
 from typing import Annotated, NamedTuple, Optional, Type
 from types import TracebackType
+from urllib.parse import urlparse
+from pathlib import PurePath
 from aiohttp import ClientSession, TCPConnector, ClientTimeout
+import aiofiles
 import chardet
 
 
@@ -24,6 +27,8 @@ class HttpSession(ClientSession):
     A wrapper around aiohttp.ClientSession that adds the method get_decoded_url for automatic
     encoding detection (which is needed in case the website is broken).
     Additional it respects configuration in terms of an HttpSessionConfig instance.
+    The URL scheme is checked before downloading. If the scheme is "file", the content is read
+    from the local filesystem instead.
     """
 
     def __init__(self, config: HttpSessionConfig) -> None:
@@ -96,8 +101,26 @@ class HttpSession(ClientSession):
             str
                 The decoded content of the URL.
         """
-        async with self.get(url) as response:
-            content = await response.read()
-            encoding = chardet.detect(content)['encoding']
-            decoded_content = content.decode(encoding)
-            return decoded_content
+
+        parsed_url = urlparse(url)
+        if parsed_url.scheme in ["http", "https"]:
+            async with self.get(url) as response:
+                encoded_content = await response.read()
+                encoding = chardet.detect(encoded_content)['encoding']
+                content = encoded_content.decode(encoding)
+        elif parsed_url.scheme == "file":
+            # We need to deal with the following situation:
+            # urlparse('file://test') => netloc = 'test', path = '', joined = 'test'
+            # urlparse('file:///test') => netloc = '', path = '/test', joined = '\test'
+            # urlparse('file://./test') => netloc = '.', path = '/test', joined = '\test'
+            # In the last case the path is relative, so the result is wrong. Thus this code:
+            base_path = PurePath(parsed_url.netloc)
+            if base_path == PurePath('.'):
+                path = base_path / parsed_url.path.lstrip("/").lstrip("\\")
+            else:
+                path = base_path / parsed_url.path
+            async with aiofiles.open(path, 'r') as f:
+                content = await f.read()
+        else:
+            raise ValueError(f"Unsupported scheme: {parsed_url.scheme}")
+        return content

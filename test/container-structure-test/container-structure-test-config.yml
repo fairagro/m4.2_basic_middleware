@@ -1,0 +1,35 @@
+schemaVersion: 2.0.0
+
+metadataTest:
+  labels:
+    - key: org.opencontainers.image.source
+      value: https://github.com/fairagro/m4.2_basic_middleware
+    - key: org.opencontainers.image.title
+      value: m4.2_basic_middleware
+  exposedPorts: []
+  volumes:
+    - /middleware/output
+  entrypoint: []
+  cmd: ["python", "main.py", "-c", "config.yml"]
+  workdir: /middleware
+  user: nonroot
+
+commandTests:
+  - name: "middleware test run"
+    command: "python"
+    args:
+      [
+        "middleware/main.py",
+        "-c",
+        "test/container-structure-test/config.yml",
+        "--no-git",
+      ]
+    expectedOutput:
+      - |-
+        [
+          {
+            "failed_entries": 0,
+            "repo_name": "test",
+            "valid_entries": 1
+          }
+        ]

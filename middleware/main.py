@@ -39,7 +39,6 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from metadata_scraper import MetadataScraperConfig, scrape_repo
 from http_session import HttpSessionConfig
 from git_repo import GitRepo, GitRepoConfig
-from utils import make_path_absolute
 
 
 def setup_opentelemetry(otlp_config: dict) -> None:
@@ -110,7 +109,7 @@ async def scrape_repo_and_write_to_file(
             A tuple containing the file path and the start timestamp.
     """
     start_timestamp = datetime.datetime.now(pytz.UTC)
-    metadata = await scrape_repo(scraper_config, default_http_config)
+    metadata, report = await scrape_repo(scraper_config, default_http_config)
     # We should collect some metrics data, but OpenTelemetry does not yet support transmitting
     # simple synchronous gauge values.
     # count_sites = len(sites)
@@ -118,7 +117,7 @@ async def scrape_repo_and_write_to_file(
     path = os.path.join(folder_path, f"{scraper_config.name}.json")
     async with aiofiles.open(path, 'w', encoding='utf-8') as f:
         await f.write(json.dumps(metadata, indent=2, ensure_ascii=False, sort_keys=True))
-    return path, start_timestamp
+    return path, start_timestamp, report
 
 def commit_to_git(sitemap_url: str,
                   git_repo: GitRepo,
@@ -174,12 +173,11 @@ def setup_andconfig() -> dict:
         )
         args = parser.parse_args()
 
-        config_path = make_path_absolute(args.config)
-        if not os.path.isfile(config_path):
-            raise FileNotFoundError(f"Config file {config_path} does not exist.")
+        if not os.path.isfile(args.config):
+            raise FileNotFoundError(f"Config file {args.config} does not exist.")
 
         # load config
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(args.config, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
 
         setup_opentelemetry(config['opentelemetry'])
@@ -207,20 +205,24 @@ async def main():
                 git_repo.pull()
             else:
                 git_repo = None
-                local_path = make_path_absolute(config['git']['local_path'])
+                local_path = config['git']['local_path']
                 os.makedirs(local_path, exist_ok=True)
 
             default_http_config = HttpSessionConfig(**config['http_client'])
+            full_report = []
             # scrape sites
             for sitemap in config['sitemaps']:
                 scraper_config = MetadataScraperConfig(**sitemap)
-                path, starttime = await scrape_repo_and_write_to_file(
+                path, starttime, repo_report = await scrape_repo_and_write_to_file(
                     local_path, scraper_config, default_http_config)
+                full_report += [{'repo_name': sitemap['name'] , **repo_report}]
                 if git_repo:
                     commit_to_git(scraper_config.url, git_repo, path, starttime)
 
             if git_repo:
                 git_repo.push()
+
+            print(json.dumps(full_report, indent=2, ensure_ascii=False, sort_keys=True))
         # pylint: disable-next=broad-except
         except Exception as e:
             otel_span = trace.get_current_span()

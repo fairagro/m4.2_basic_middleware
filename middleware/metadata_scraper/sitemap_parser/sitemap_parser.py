@@ -2,7 +2,7 @@
 This module define the abtract base class for sitemap parsers.
 """
 
-from typing import List
+from typing import Dict, List, Tuple
 import json
 
 from utils.registering_abc import RegisteringABC
@@ -39,7 +39,7 @@ class SitemapParser(RegisteringABC):
         return self._content
 
     @property
-    def metadata(self) -> List[dict]:
+    def metadata(self) -> Tuple[List[dict], Dict]:
         """
         Return the metadata in case it is already included in the sitemap.
         Will raise an exception of type 'MetadataParseError' if the metadata cannot be parsed.
@@ -50,13 +50,16 @@ class SitemapParser(RegisteringABC):
                 The metadata in terms of a list of dictionaries.
         """
         if not self.content:
-            # we treat empty content as an error because to be consistent with the
-            # extruct library
+            # we treat empty content as an error to be consistent with the extruct library
             raise SitemapParseError("Empty content")
         metadata = self.get_metadata()
         if not isinstance(metadata, list):
-            return [metadata]
-        return metadata
+            metadata = [metadata]
+        report = {
+            'valid_entries': len(metadata),
+            'failed_entries': 0
+        }
+        return metadata, report
 
     @property
     def datasets(self) -> str:
