@@ -61,6 +61,10 @@ jobs:
     steps:
       - name: debug
         run: |
+          pwd
+
+      - name: debug
+        run: |
           ls -la
 
       - name: Set up Docker Buildx
