@@ -80,6 +80,7 @@ jobs:
         with:
           load: true
           tags: middleware:test
+          labels: ${{ steps.metadata.outputs.labels }} # we need the labels as they're checked for
 
       - name: Test image
         uses: plexsystems/container-structure-test-action@v0.3.0

@@ -121,6 +121,8 @@ This repository currently has two distinct sets of automated tests:
   python -m unittest discover -s middleware
   ```
 
+  Unit tests are executed automatically by the github action `Python Code Check`
+
 - [Container structure tests](https://github.com/GoogleContainerTools/container-structure-test). These tests are used to check if ready built docker containers
   work as expected. You can find everything related to these tests in the folder `test/container-structure-test`. This folder includes a special middleware config
   that is used for testing, without accessing real research repositories. You will also find the actual `container-structure-test` config that defines the actual tests
@@ -154,3 +156,6 @@ This repository currently has two distinct sets of automated tests:
     --image middleware:test `
     --config .\test\container-structure-test\container-structure-test-config.yml
   ```
+
+  Container structure tests are executed automatically the github action `Docker Build`.
+  
