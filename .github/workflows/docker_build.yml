@@ -59,6 +59,10 @@ jobs:
         python-version: ["3.11"]
 
     steps:
+      - name: debug
+        run: |
+          ls -la
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
