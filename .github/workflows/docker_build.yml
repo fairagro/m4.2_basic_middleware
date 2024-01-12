@@ -82,7 +82,7 @@ jobs:
           tags: middleware:test
 
       - name: Test image
-        uses: plexsystems/container-structure-test-action@v0.1.0
+        uses: plexsystems/container-structure-test-action@v0.3.0
         with:
           image: middleware:test
           config: test/container-structure-test/container-structure-test-config.yml
