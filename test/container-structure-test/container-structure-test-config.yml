@@ -14,8 +14,16 @@ metadataTest:
   workdir: /middleware
   user: nonroot
 
+fileExistenceTests:
+  - name: "middleware folder is present"
+    path: /middleware
+    shouldExist: true
+    permissions: "drwxr-xr-x"
+    uid: 65532
+    gid: 65532
+
 commandTests:
-  - name: "middleware test run"
+  - name: "middleware test run has correct output"
     command: "python"
     args:
       [
