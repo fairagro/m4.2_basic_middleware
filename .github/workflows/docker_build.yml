@@ -80,9 +80,23 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USER }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Build and export to Docker
         uses: docker/build-push-action@v5
         with:
+          context: .
+          load: true
+          tags: middleware:test
+
+      - name: Test image
+        uses: plexsystems/container-structure-test-action@v0.1.0
+        with:
+          image: middleware:test
+          config: test/container-structure-test/container-structure-test-config.yml
+
+      - name: Build and Push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}

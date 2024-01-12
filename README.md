@@ -43,7 +43,8 @@ Note: we set these two labels so the resulting image will pass our `container-st
 To run this image, please use this command:
 
 ```powershell
-docker run --rm --user 65532 `
+docker run `
+  --rm --user nonroot --cap-drop all `
   -v .\config.yml:/middleware/config.yml `
   -v .\ssh_key.pem:/middleware/ssh_key.pem `
   middleware:test
@@ -136,7 +137,8 @@ This repository currently has two distinct sets of automated tests:
   using a docker container instead:
 
   ```powershell
-  docker run --user 65532 --rm `
+  docker run `
+    --user nonroot --rm --cap-drop all`
     middleware:test `
     python main.py -c test/container-structure-test/image_test_config.yml --no-git
   ```
@@ -152,4 +154,3 @@ This repository currently has two distinct sets of automated tests:
     --image middleware:test `
     --config .\test\container-structure-test\container-structure-test-config.yml
   ```
-  
