@@ -19,7 +19,8 @@ pip install -r requirements.txt
 Running the script is very simple:
 
 ```powershell
-python middleware\main.py -c ..\..\config.yml [--no-git]
+cd middleware
+python main.py -c ..\config.yml [--no-git]
 ```
 
 ## Configuration ##
@@ -31,13 +32,22 @@ The script reads in a configuration file. This file can be specified via the com
 There is a [Wolfi](https://github.com/wolfi-dev)-based `Dockerfile` to build a docker image:
 
 ```powershell
-docker build -t middleware:test .
+docker build `
+  -t middleware:test `
+  --label org.opencontainers.image.source=https://github.com/fairagro/m4.2_basic_middleware `
+  --label org.opencontainers.image.title=m4.2_basic_middleware .
 ```
+
+Note: we set these two labels so the resulting image will pass our `container-structure-test`s (see below).
 
 To run this image, please use this command:
 
 ```powershell
-docker run --user 65532 -v .\config.yml:/middleware/utils/config.yml -v .\ssh_key.pem:/middleware/ssh_key.pem --rm middleware:test
+docker run `
+  --rm --user nonroot --cap-drop all `
+  -v .\config.yml:/middleware/config.yml `
+  -v .\ssh_key.pem:/middleware/ssh_key.pem `
+  middleware:test
 ```
 
 A few notes on this docker run call:
@@ -108,3 +118,53 @@ BREAKING CHANGE: <description>
 
 The scope denotes the part of your project you're working on -- e.g 'frontend', 'backend', 'parser', etc. Currently there are no defined scopes
 for this repo.
+
+## About Testing ##
+
+This repository currently has two distinct sets of automated tests:
+
+- [Python unittests](https://docs.python.org/3/library/unittest.html). Python packages in the source tree are expected to define a `test` directory that contains the
+  corresponding unit test. Note that not every package current implement unit tests. To run the unit tests you can use this command:
+
+  ```powershell
+  python -m unittest discover -s middleware
+  ```
+
+  Unit tests are executed automatically by the github action `Python Code Check`
+
+- [Container structure tests](https://github.com/GoogleContainerTools/container-structure-test). These tests are used to check if ready built docker containers
+  work as expected. You can find everything related to these tests in the folder `test/container-structure-test`. This folder includes a special middleware config
+  that is used for testing, without accessing real research repositories. You will also find the actual `container-structure-test` config that defines the actual tests
+  as well as two mock files that define a sitemap file and a dataset web page to be used by the tests.
+
+  To run the test setup (whithout actual testing):
+
+  ```powershell
+  python middleware\main.py `
+    -c test\container-structure-test\image_test_config.yml `
+    --no-git
+  ```
+
+  using a docker container instead:
+
+  ```powershell
+  docker run `
+    --user nonroot --rm --cap-drop all`
+    middleware:test `
+    python main.py -c test/container-structure-test/image_test_config.yml --no-git
+  ```
+
+  Note: we've copied the `test/container-structure-test` folder into the image, using the docker file. Alternatively the folder can be mounted into the image, but
+  this makes things complicated when using `container-structure-test`. This clutters the image with some unnessary files in production, but as far as I can tell, they
+  are not harmful.
+
+  To run the `container-structure-test` itself:
+
+  ```powershell
+  container-structure-test test `
+    --image middleware:test `
+    --config .\test\container-structure-test\container-structure-test-config.yml
+  ```
+
+  Container structure tests are executed automatically the github action `Docker Build`.
+  

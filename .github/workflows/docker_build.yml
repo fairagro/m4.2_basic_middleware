@@ -59,6 +59,9 @@ jobs:
         python-version: ["3.11"]
 
     steps:
+      - name: Checkout git repo
+        uses: actions/checkout@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -72,6 +75,19 @@ jobs:
             type=raw,value=${{ needs.version.outputs.Major }}.${{ needs.version.outputs.Minor }}
             type=raw,value=${{ needs.version.outputs.Major }}
 
+      - name: Build and export to Docker
+        uses: docker/build-push-action@v5
+        with:
+          load: true
+          tags: middleware:test
+          labels: ${{ steps.metadata.outputs.labels }} # we need the labels as they're checked for
+
+      - name: Test image
+        uses: plexsystems/container-structure-test-action@v0.3.0
+        with:
+          image: middleware:test
+          config: test/container-structure-test/container-structure-test-config.yml
+
       # Secrets are managed within the github GUI
       - name: Log in to Docker Hub
         if: github.event_name != 'pull_request'
@@ -80,7 +96,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USER }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Build and Push
         uses: docker/build-push-action@v5
         with:
           push: ${{ github.event_name != 'pull_request' }}

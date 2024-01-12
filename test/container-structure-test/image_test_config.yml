@@ -1,0 +1,20 @@
+# A local sitemap for testing the container
+sitemaps:
+  - name: test
+    url: file://./test/container-structure-test/test_sitemap.xml
+    sitemap: xml
+    metadata: embedded_jsonld
+
+# This config is currently required even if it is not used
+http_client:
+  connection_limit: 20
+  receive_timeout: 120
+  connect_timeout: 10
+
+# This config is required even if do not use git, because we need a local working directory in any
+# case.
+git:
+  local_path: output
+
+# This config is required
+opentelemetry: {}
