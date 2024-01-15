@@ -1,0 +1,11 @@
+**/.git
+**/.gitignore
+**/.vscode
+**/.github
+**/.venv
+**/doc
+middleware/**/test
+.gitignore
+Dockerfile
+GitVersion.yml
+README.txt

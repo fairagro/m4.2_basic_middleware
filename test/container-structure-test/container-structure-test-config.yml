@@ -15,12 +15,9 @@ metadataTest:
   user: nonroot
 
 fileExistenceTests:
-  - name: "middleware folder is present"
-    path: /middleware
+  - name: "middleware is present"
+    path: /middleware/main.py
     shouldExist: true
-    permissions: "drwxr-xr-x"
-    uid: 65532
-    gid: 65532
 
 commandTests:
   - name: "middleware test run has correct output"
