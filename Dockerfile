@@ -1,5 +1,5 @@
 # Use secure Wolfi base image (without Python installed)
-FROM cgr.dev/chainguard/wolfi-base@sha256:fea6eed46b4e4bfcb3632dbac2e34c0b1eb202385fe0c5065278530e4f8d7cff as builder
+FROM cgr.dev/chainguard/wolfi-base@sha256:ddcb4e46542cfa7bedc955be6e8173bc61c64ee48b5267ec0b1cb58a2bf68026 as builder
 # Set the version of Python to install
 ARG python_version=3.12
 # Do not cache the Python bytecode (aka don't create__pycache__ folders)
@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt --user
 # Actually we would like to use the Wolfi python image for the runtime as it contains even less software (e.g. no shell)
 # and thus a smaller attack surface. Unfortunately the Wolfi project only features the current development versions of
 # images for free. The older but stable python 3.11 is not available.
-FROM cgr.dev/chainguard/wolfi-base@sha256:fea6eed46b4e4bfcb3632dbac2e34c0b1eb202385fe0c5065278530e4f8d7cff
+FROM cgr.dev/chainguard/wolfi-base@sha256:ddcb4e46542cfa7bedc955be6e8173bc61c64ee48b5267ec0b1cb58a2bf68026
 # python_version is out of scope now, so we need to redefine it
 ARG python_version=3.12
 # Set the working directory in the container
