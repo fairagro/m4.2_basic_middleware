@@ -40,6 +40,13 @@
 		},
 		"ghcr.io/schlich/cst-devcontainer-feature/container-structure-test:1": {
 			"addAlias": true
+		},
+		"ghcr.io/devcontainers/features/docker-in-docker:2": {
+			"moby": true,
+			"installDockerBuildx": true,
+			"installDockerComposeSwitch": true,
+			"version": "latest",
+			"dockerDashComposeVersion": "v2"
 		}
 	}
 
