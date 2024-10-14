@@ -1,11 +1,11 @@
 # Use secure Wolfi base image (without Python installed)
-FROM cgr.dev/chainguard/wolfi-base@sha256:35c767080978768b86904e6c64845736c3cf05c406299b944dcd24ffe8270df5 as builder
+FROM cgr.dev/chainguard/wolfi-base@sha256:35c767080978768b86904e6c64845736c3cf05c406299b944dcd24ffe8270df5 AS builder
 # Set the version of Python to install
 ARG python_version=3.12
 # Do not cache the Python bytecode (aka don't create__pycache__ folders)
-ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONDONTWRITEBYTECODE=1
 # Do not buffer stdout/stderr
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONUNBUFFERED=1
 # Set the working directory in the container
 WORKDIR /middleware
 # Install python and needed build tools
