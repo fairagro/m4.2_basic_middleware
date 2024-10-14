@@ -34,14 +34,14 @@ jobs:
           fetch-depth: 0 # This is needed for GitVersion not to crash
 
       - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v1
+        uses: gittools/actions/gitversion/setup@v2
         with:
           versionSpec: "5.x"
           preferLatestVersion: true
 
       - name: Determine Version
         id: gitversion # id to later be referenced
-        uses: gittools/actions/gitversion/execute@v1
+        uses: gittools/actions/gitversion/execute@v2
 
       - name: Create version tag
         if: github.event_name != 'pull_request'
