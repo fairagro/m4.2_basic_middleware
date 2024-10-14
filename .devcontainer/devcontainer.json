@@ -1,0 +1,60 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
+{
+	"name": "Ubuntu",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	"image": "mcr.microsoft.com/devcontainers/base:noble",
+	"features": {
+		"ghcr.io/devcontainers/features/git-lfs:1": {
+			"installDirectlyFromGitHubRelease": true,
+			"version": "latest"
+		},
+		"ghcr.io/devcontainers/features/python:1": {
+			"installTools": true,
+			"optimize": true,
+			"version": "3.12"
+		},
+		"ghcr.io/mpriscella/features/sops:1": {
+			"version": "v3.7.3"
+		},
+		"ghcr.io/eitsupi/devcontainer-features/jq-likes:2": {
+			"jqVersion": "os-provided",
+			"yqVersion": "4",
+			"gojqVersion": "none",
+			"xqVersion": "latest",
+			"jaqVersion": "none"
+		},
+		"ghcr.io/dhoeric/features/hadolint:1": {},
+		"ghcr.io/rchaganti/vsc-devcontainer-features/cosign:1": {},
+		"ghcr.io/stuartleeks/dev-container-features/shell-history:0": {},
+		"ghcr.io/guiyomh/features/vim:0": {},
+		"ghcr.io/dasiths/devcontainer-features/syft:1": {
+			"version": "latest",
+			"destination_dir": "/usr/local/bin"
+		},
+		"ghcr.io/itsmechlark/features/trivy:1": {
+			"version": "0.53"
+		},
+		"ghcr.io/robbert229/devcontainer-features/postgresql-client:1": {
+			"version": "15"
+		},
+		"ghcr.io/schlich/cst-devcontainer-feature/container-structure-test:1": {
+			"addAlias": true
+		}
+	}
+
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	// "features": {},
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+
+	// Use 'postCreateCommand' to run commands after the container is created.
+	// "postCreateCommand": "uname -a",
+
+	// Configure tool-specific properties.
+	// "customizations": {},
+
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "root"
+}
