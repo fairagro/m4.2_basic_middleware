@@ -30,7 +30,7 @@ opentelemetry-exporter-otlp-proto-common==1.27.0
 opentelemetry-exporter-otlp-proto-grpc==1.27.0
 opentelemetry-instrumentation==0.48b0
 opentelemetry-instrumentation-aiohttp-client==0.48b0
-opentelemetry-instrumentation-requests==0.48b0
+opentelemetry-instrumentation-requests==0.49b2
 opentelemetry-instrumentation-urllib==0.48b0
 opentelemetry-proto==1.27.0
 opentelemetry-sdk==1.27.0
