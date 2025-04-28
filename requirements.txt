@@ -48,7 +48,7 @@ six==1.16.0
 smmap==5.0.1
 soupsieve==2.6
 typing_extensions==4.12.2
-urllib3==2.2.3
+urllib3==2.4.0
 w3lib==2.2.1
 webencodings==0.5.1
 wrapt==1.16.0
