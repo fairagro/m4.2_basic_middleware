@@ -81,7 +81,7 @@ jobs:
           load: true
           tags: middleware:test
           labels: ${{ steps.metadata.outputs.labels }} # we need the labels as they're checked for
-          build-args: python_version=${PYTHON_VERSION}
+          build-args: python_version=${{ env.PYTHON_VERSION }}
 
       - name: Test image
         uses: plexsystems/container-structure-test-action@v0.3.0
@@ -103,4 +103,4 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
-          build-args: python_version=${PYTHON_VERSION}
+          build-args: python_version=${{ env.PYTHON_VERSION }}
