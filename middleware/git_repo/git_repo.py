@@ -186,4 +186,3 @@ data from resarch data repositories in consolidated JSON-LD files.
         repo.git.checkout(branch)
 
         return repo
-    
