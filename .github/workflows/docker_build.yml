@@ -54,9 +54,9 @@ jobs:
   docker_build:
     runs-on: ubuntu-latest
     needs: version
-    strategy:
-      matrix:
-        python_version: ["3.12"]
+
+    env:
+      PYTHON_VERSION: 3.12
 
     steps:
       - name: Checkout git repo
@@ -69,7 +69,7 @@ jobs:
         id: metadata
         uses: docker/metadata-action@v5
         with:
-          images: zalf/fairagro_basic_middleware #-${{ matrix.python_version }}
+          images: zalf/fairagro_basic_middleware
           tags: |
             type=semver,pattern={{version}},value=${{ needs.version.outputs.SemVer }}
             type=raw,value=${{ needs.version.outputs.Major }}.${{ needs.version.outputs.Minor }}
@@ -81,7 +81,7 @@ jobs:
           load: true
           tags: middleware:test
           labels: ${{ steps.metadata.outputs.labels }} # we need the labels as they're checked for
-          build-args: python_version=${{ matrix.python_version }}
+          build-args: python_version=${{ env.PYTHON_VERSION }}
 
       - name: Test image
         uses: plexsystems/container-structure-test-action@v0.3.0
@@ -103,4 +103,4 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
-          build-args: python_version=${{ matrix.python_version }}
+          build-args: python_version=${{ env.PYTHON_VERSION }}
