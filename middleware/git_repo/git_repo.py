@@ -36,7 +36,9 @@ class GitRepoConfig(NamedTuple):
     local_path: Annotated[str, "The local path of the git repository"]
     user_name: Annotated[str, "The name of git user"]
     user_email: Annotated[str, "The email address of git usere"]
-    branch: Annotated[Optional[str], "The branch of the git repository"] = "main"
+    branch: Annotated[Optional[str],
+                      "The branch of the git repository"] = "main"
+
 
 class GitRepo:
     """
@@ -58,7 +60,7 @@ class GitRepo:
     """
 
     # So we do not need to turn off host key checking
-    github_host_keys="""# github.com:22 SSH-2.0-1907b149
+    github_host_keys = """# github.com:22 SSH-2.0-1907b149
 github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=
 # github.com:22 SSH-2.0-1907b149
 # github.com:22 SSH-2.0-1907b149
@@ -154,24 +156,31 @@ github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okW
         # find the ssh key and use it. We need an absolute path for this so git can find it.
         # no matter which is the current working directory.
         ssh_key = GitRepo._make_ssh_key_path(self._ssh_key)
-        ssh_authorized_keys = GitRepo._make_ssh_key_path(self._ssh_authorized_keys)
+        ssh_authorized_keys = GitRepo._make_ssh_key_path(
+            self._ssh_authorized_keys)
 
         # Get key from env and write to file
         private_key = os.environ.get("SSH_PRIVATE_KEY")
         if private_key is None:
-            raise ValueError("SSH_PRIVATE_KEY environment variable is not set.")
-        with open(ssh_key, "w") as file:
+            raise ValueError(
+                "SSH_PRIVATE_KEY environment variable is not set.")
+        with open(ssh_key, "w", encoding="utf-8") as file:
             file.write(private_key)
             file.write("\n")
         os.chmod(ssh_key, 0o600)
 
         # Write authorized_keys to file
-        with open(ssh_authorized_keys, "w") as file:
+        with open(ssh_authorized_keys, "w", encoding="utf-8") as file:
             file.write(GitRepo.github_host_keys)
         os.chmod(ssh_authorized_keys, 0o644)
 
-        os.environ['GIT_SSH_COMMAND'] = \
-            f'ssh -F /dev/null -i {ssh_key} -o UserKnownHostsFile={ssh_authorized_keys} -o StrictHostKeyChecking=yes'
+        os.environ['GIT_SSH_COMMAND'] = (
+            f'ssh '
+            f'-F /dev/null '
+            f'-i {ssh_key} '
+            f'-o UserKnownHostsFile={ssh_authorized_keys} '
+            f'-o StrictHostKeyChecking=yes'
+        )
 
         # Initialize existing repo or clone it, if this hasn't been done yet
         try:
