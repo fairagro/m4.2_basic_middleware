@@ -8,19 +8,19 @@ To use this script, you need to have a Python version 3.11 installed.
 
 To setup your environment in Powershell (bash would be nearly identical):
 
-```powershell
+```bash
 cd <your local project directory>
 python -m pip install --upgrade pip pipdeptree setuptools wheel
 python -m venv .venv
-. .\.venv\Scripts\Activate.ps1
+. .venv/bin/activate
 pip install -r requirements.txt
 ```
 
 Running the script is very simple:
 
-```powershell
+```bash
 cd middleware
-python main.py -c ..\config.yml [--no-git]
+python main.py -c ../config.yml [--no-git]
 ```
 
 ## Configuration ##
@@ -31,10 +31,10 @@ The script reads in a configuration file. This file can be specified via the com
 
 There is a [Wolfi](https://github.com/wolfi-dev)-based `Dockerfile` to build a docker image:
 
-```powershell
-docker build `
-  -t middleware:test `
-  --label org.opencontainers.image.source=https://github.com/fairagro/m4.2_basic_middleware `
+```bash
+docker build \
+  -t middleware:test \
+  --label org.opencontainers.image.source=https://github.com/fairagro/m4.2_basic_middleware \
   --label org.opencontainers.image.title=m4.2_basic_middleware .
 ```
 
@@ -42,12 +42,26 @@ Note: we set these two labels so the resulting image will pass our `container-st
 
 To run this image, please use this command:
 
-```powershell
-docker run `
-  --rm --user nonroot --cap-drop all `
-  -v .\config.yml:/middleware/config.yml `
-  -v .\ssh_key.pem:/middleware/ssh_key.pem `
+```bash
+SSH_PRIVATE_KEY="$(cat ./ssh_key.pem)"
+docker run \
+  --rm --user nonroot --cap-drop all \
+  --tmpfs /tmp/ssh:rw,noexec,nosuid,size=64k \
+  -e SSH_PRIVATE_KEY="$SSH_PRIVATE_KEY" \
+  -v ./config.yml:/middleware/config.yml \
   middleware:test
+```
+
+Running the image from dockergub:
+
+```bash
+SSH_PRIVATE_KEY="$(cat ./ssh_key.pem)"
+docker run \
+  --rm --user nonroot --cap-drop all \
+  --tmpfs /tmp/ssh:rw,noexec,nosuid,size=64k \
+  -e SSH_PRIVATE_KEY="$SSH_PRIVATE_KEY" \
+  -v ./config.yml:/middleware/config.yml \
+  zalf/fairagro_basic_middleware:latest
 ```
 
 A few notes on this docker run call:

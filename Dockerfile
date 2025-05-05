@@ -40,13 +40,14 @@ RUN apk add --no-cache \
     mkdir /middleware/output && \
     chown nonroot:nonroot /middleware/output
 # Set the user to nonroot. It's defined in the Wolfi base image with the user id 65532
-USER nonroot
 # Copy the application from host
 COPY middleware/ /middleware/
 # We also copy the container-structure-test environment. This make it a lot easier to test the resulting container.
 COPY test/container-structure-test /middleware/test/container-structure-test
 # Mount a volume for the output
 VOLUME /middleware/output
+# Change user context to nonroot
+USER nonroot
 # Set the command to run when the container starts
 CMD [ "python", "main.py", "-c", "config.yml" ]
 
