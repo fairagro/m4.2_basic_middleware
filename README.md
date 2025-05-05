@@ -8,19 +8,19 @@ To use this script, you need to have a Python version 3.11 installed.
 
 To setup your environment in Powershell (bash would be nearly identical):
 
-```powershell
+```bash
 cd <your local project directory>
 python -m pip install --upgrade pip pipdeptree setuptools wheel
 python -m venv .venv
-. .\.venv\Scripts\Activate.ps1
+. .venv/bin/activate
 pip install -r requirements.txt
 ```
 
 Running the script is very simple:
 
-```powershell
+```bash
 cd middleware
-python main.py -c ..\config.yml [--no-git]
+python main.py -c ../config.yml [--no-git]
 ```
 
 ## Configuration ##
@@ -31,10 +31,10 @@ The script reads in a configuration file. This file can be specified via the com
 
 There is a [Wolfi](https://github.com/wolfi-dev)-based `Dockerfile` to build a docker image:
 
-```powershell
-docker build `
-  -t middleware:test `
-  --label org.opencontainers.image.source=https://github.com/fairagro/m4.2_basic_middleware `
+```bash
+docker build \
+  -t middleware:test \
+  --label org.opencontainers.image.source=https://github.com/fairagro/m4.2_basic_middleware \
   --label org.opencontainers.image.title=m4.2_basic_middleware .
 ```
 
@@ -42,22 +42,37 @@ Note: we set these two labels so the resulting image will pass our `container-st
 
 To run this image, please use this command:
 
-```powershell
-docker run `
-  --rm --user nonroot --cap-drop all `
-  -v .\config.yml:/middleware/config.yml `
-  -v .\ssh_key.pem:/middleware/ssh_key.pem `
+```bash
+SSH_PRIVATE_KEY="$(cat ./ssh_key.pem)"
+docker run \
+  --rm --user nonroot --cap-drop all \
+  --tmpfs /tmp/ssh:rw,noexec,nosuid,size=64k \
+  -e SSH_PRIVATE_KEY="$SSH_PRIVATE_KEY" \
+  -v ./config.yml:/middleware/config.yml \
   middleware:test
+```
+
+Running the image from dockergub:
+
+```bash
+SSH_PRIVATE_KEY="$(cat ./ssh_key.pem)"
+docker run \
+  --rm --user nonroot --cap-drop all \
+  --tmpfs /tmp/ssh:rw,noexec,nosuid,size=64k \
+  -e SSH_PRIVATE_KEY="$SSH_PRIVATE_KEY" \
+  -v ./config.yml:/middleware/config.yml \
+  zalf/fairagro_basic_middleware:latest
 ```
 
 A few notes on this docker run call:
 
 - We run the container without root privileges as user `nonroot`. This user is defined in the Wolfi base image.
-- `config.yml` and `ssh_key.pem` specify the configuration and are mounted into the container. The ssh key is for git interaction with the
+- `config.yml` and `ssh_key.pem` specify the configuration. `config.yml` is mounted as volume, whereas the content of `ssh_key.epm`
+  is passed as environment variable `SSH_PRIVATE_KEY`. This is to prevent from permission issues. The ssh key is for git interaction with the
   remote repository specified in the config file. Of course it needs to be already known to the git repo.
 - The local git working folder would preferably also be mounted into the container so its contents could be cached between container runs.
-  But this seems not to be possible -- at least not without administrational permission on the host machine. The issue is that mounted volumes
-  always belong to root, but the container does not run with root permissions, so it has no write access to the folder.
+  But this seems not to be possible -- at least not without administrational permission on the host machine. The issue is that mounted 
+  volumes always belong to root, but the container does not run with root permissions, so it has no write access to the folder.
 
 ## Notes on the python version ##
 

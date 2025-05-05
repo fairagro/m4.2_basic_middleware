@@ -19,11 +19,13 @@ __version__ = '0.1.0'
 __author__ = 'carsten.scharfenberg@zalf.de'
 
 
-from typing import Annotated, List, NamedTuple, Optional, Union
+from types import TracebackType
+from typing import Annotated, List, NamedTuple, Optional, Type, Union
 from pathlib import Path, PurePosixPath
 import os
+import tempfile
+
 import git
-import git.util
 
 
 class GitRepoConfig(NamedTuple):
@@ -35,8 +37,8 @@ class GitRepoConfig(NamedTuple):
     local_path: Annotated[str, "The local path of the git repository"]
     user_name: Annotated[str, "The name of git user"]
     user_email: Annotated[str, "The email address of git usere"]
-    branch: Annotated[Optional[str], "The branch of the git repository"] = "main"
-    ssh_key_path: Annotated[Optional[str], "The path to the ssh key file"] = None
+    branch: Annotated[Optional[str],
+                      "The branch of the git repository"] = "main"
 
 
 class GitRepo:
@@ -58,9 +60,60 @@ class GitRepo:
             Then local working directory of the git repo
     """
 
+    # So we do not need to turn off host key checking
+    github_host_keys = """# github.com:22 SSH-2.0-1907b149
+github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=
+# github.com:22 SSH-2.0-1907b149
+# github.com:22 SSH-2.0-1907b149
+github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
+# github.com:22 SSH-2.0-1907b149
+github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+# github.com:22 SSH-2.0-1907b149
+"""
+
     def __init__(self, config: GitRepoConfig) -> None:
         self._config = config
+        self._ssh_tempdir = tempfile.TemporaryDirectory(dir='/tmp/ssh') # pylint: disable=R1732
+        self._ssh_key = os.path.abspath(
+            os.path.join(self._ssh_tempdir.name, "ssh_key"))
+        self._ssh_authorized_keys = os.path.abspath(
+            os.path.join(self._ssh_tempdir.name, "authorized_keys"))
         self._repo = self._setup()
+
+    # Make this class a context manager to reliably delete the temp dir
+    def __enter__(self) -> "GitRepo":
+        """
+        Make this class a context manager to reliably delete the temp dir.
+
+        Returns
+        -------
+        GitRepo
+            The same instance of GitRepo
+        """
+        return self
+
+    def __exit__(
+            self,
+            exc_type: Type[BaseException],
+            exc_value: BaseException,
+            traceback: TracebackType) -> None:
+        """
+        Make this class a context manager to reliably delete the temp dir.
+
+        Parameters
+        ----------
+            exc_type : Type[BaseException]
+                The type of the exception being handled, if any.
+            exc_val : BaseException
+                The exception instance being handled, if any.
+            exc_tb : TracebackType
+                The traceback of the exception being handled, if any.
+
+        Returns
+        -------
+            None
+        """
+        self._ssh_tempdir.cleanup()
 
     @property
     def working_dir(self) -> Union[str, os.PathLike[str]]:
@@ -135,14 +188,32 @@ class GitRepo:
 
         # find the ssh key and use it. We need an absolute path for this so git can find it.
         # no matter which is the current working directory.
-        ssh_key_path = os.path.abspath(self._config.ssh_key_path)
-        if ssh_key_path:
-            # Note: actutally /dev/null is OS-dependent. There is os.devnull to cope with this.
-            # But for my git setup on Windwos, /dev/null is the correct value -- probably because
-            # it uses an MSYS-based ssh.
-            os_key_path = GitRepo._make_ssh_key_path(ssh_key_path)
-            os.environ['GIT_SSH_COMMAND'] = \
-                f'ssh -F /dev/null -o StrictHostKeyChecking=no -i {os_key_path}'
+        ssh_key = GitRepo._make_ssh_key_path(self._ssh_key)
+        ssh_authorized_keys = GitRepo._make_ssh_key_path(
+            self._ssh_authorized_keys)
+
+        # Get key from env and write to file
+        private_key = os.environ.get("SSH_PRIVATE_KEY")
+        if private_key is None:
+            raise ValueError(
+                "SSH_PRIVATE_KEY environment variable is not set.")
+        with open(ssh_key, "w", encoding="utf-8") as file:
+            file.write(private_key)
+            file.write("\n")
+        os.chmod(ssh_key, 0o600)
+
+        # Write authorized_keys to file
+        with open(ssh_authorized_keys, "w", encoding="utf-8") as file:
+            file.write(GitRepo.github_host_keys)
+        os.chmod(ssh_authorized_keys, 0o644)
+
+        os.environ['GIT_SSH_COMMAND'] = (
+            f'ssh '
+            f'-F /dev/null '
+            f'-i {ssh_key} '
+            f'-o UserKnownHostsFile={ssh_authorized_keys} '
+            f'-o StrictHostKeyChecking=yes'
+        )
 
         # Initialize existing repo or clone it, if this hasn't been done yet
         try:
