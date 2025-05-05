@@ -19,7 +19,8 @@ __version__ = '0.1.0'
 __author__ = 'carsten.scharfenberg@zalf.de'
 
 
-from typing import Annotated, List, NamedTuple, Optional, Union
+from types import TracebackType
+from typing import Annotated, List, NamedTuple, Optional, Type, Union
 from pathlib import Path, PurePosixPath
 import os
 import tempfile
@@ -72,14 +73,46 @@ github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okW
 
     def __init__(self, config: GitRepoConfig) -> None:
         self._config = config
-        self._ssh_tempdir = tempfile.TemporaryDirectory(dir='/tmp/ssh')
+        self._ssh_tempdir = tempfile.TemporaryDirectory(dir='/tmp/ssh') # pylint: disable=R1732
         self._ssh_key = os.path.abspath(
             os.path.join(self._ssh_tempdir.name, "ssh_key"))
         self._ssh_authorized_keys = os.path.abspath(
             os.path.join(self._ssh_tempdir.name, "authorized_keys"))
         self._repo = self._setup()
 
-    def __del__(self) -> None:
+    # Make this class a context manager to reliably delete the temp dir
+    def __enter__(self) -> "GitRepo":
+        """
+        Make this class a context manager to reliably delete the temp dir.
+
+        Returns
+        -------
+        GitRepo
+            The same instance of GitRepo
+        """
+        return self
+
+    def __exit__(
+            self,
+            exc_type: Type[BaseException],
+            exc_value: BaseException,
+            traceback: TracebackType) -> None:
+        """
+        Make this class a context manager to reliably delete the temp dir.
+
+        Parameters
+        ----------
+            exc_type : Type[BaseException]
+                The type of the exception being handled, if any.
+            exc_val : BaseException
+                The exception instance being handled, if any.
+            exc_tb : TracebackType
+                The traceback of the exception being handled, if any.
+
+        Returns
+        -------
+            None
+        """
         self._ssh_tempdir.cleanup()
 
     @property
