@@ -7,7 +7,7 @@ backoff==2.2.1
 beautifulsoup4==4.13.4
 certifi==2025.4.26
 chardet==5.2.0
-charset-normalizer==3.4.1
+charset-normalizer==3.4.2
 Deprecated==1.2.18
 extruct==0.18.0
 frozenlist==1.6.0
