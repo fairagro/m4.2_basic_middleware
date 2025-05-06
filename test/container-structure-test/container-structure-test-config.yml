@@ -7,8 +7,7 @@ metadataTest:
     - key: org.opencontainers.image.title
       value: m4.2_basic_middleware
   exposedPorts: []
-  volumes:
-    - /middleware/output
+  volumes: []
   entrypoint: [/entrypoint.sh]
   cmd: ["python", "main.py", "-c", "config.yml"]
   workdir: /middleware
