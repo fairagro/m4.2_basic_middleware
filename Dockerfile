@@ -44,10 +44,13 @@ RUN apk add --no-cache \
 COPY middleware/ /middleware/
 # We also copy the container-structure-test environment. This make it a lot easier to test the resulting container.
 COPY test/container-structure-test /middleware/test/container-structure-test
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 # Mount a volume for the output
 VOLUME /middleware/output
 # Change user context to nonroot
 USER nonroot
+ENTRYPOINT ["/entrypoint.sh"]
 # Set the command to run when the container starts
 CMD [ "python", "main.py", "-c", "config.yml" ]
 
