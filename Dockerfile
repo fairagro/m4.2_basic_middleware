@@ -46,8 +46,6 @@ COPY middleware/ /middleware/
 COPY test/container-structure-test /middleware/test/container-structure-test
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
-# Mount a volume for the output
-VOLUME /middleware/output
 # Change user context to nonroot
 USER nonroot
 ENTRYPOINT ["/entrypoint.sh"]
