@@ -9,7 +9,7 @@ metadataTest:
   exposedPorts: []
   volumes:
     - /middleware/output
-  entrypoint: []
+  entrypoint: [/entrypoint.sh]
   cmd: ["python", "main.py", "-c", "config.yml"]
   workdir: /middleware
   user: nonroot
