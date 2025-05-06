@@ -228,12 +228,13 @@ github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okW
         config_writer = repo.config_writer()
         config_writer.set_value("user", "name", self._config.user_name)
         config_writer.set_value("user", "email", self._config.user_email)
-        # In case we use a persistent volume containing our git repo and someone is
+        # In case we use a persistent volume containing our git repo and someone else is
         # running/testing the basic middleware on another machine, we might end up
-        # lagging behind the remote. So we need to specify a pull strategy. We just
-        # want to use fast forward here, as we do neither expect conflict nor we can
-        # resolve them, as the script is intended to be run without manual interaction.
-        config_writer.set_value("pull", "ff", "only")
+        # lagging behind the remote repo. So we need to specify a pull strategy. Rebase
+        # seems to be most suitable (tests showed that fast-forward is not possible and
+        # rebase works without merge commits that we do not want -- hopefully we never
+        # run into conflicts.)
+        config_writer.set_value("pull", "rebase", True)
         config_writer.release()
 
         # switch into desired branch or create it
