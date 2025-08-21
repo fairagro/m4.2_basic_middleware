@@ -254,7 +254,7 @@ def extract_thunen_from_openagrar_metadata():
         return
     # Regex pattern to match publisher synonyms
     publisher_pattern = re.compile(
-        r"Thünen[- ]?Institut|Thuenen Institute", re.IGNORECASE
+        r"Thünen[- ]?Institut|Thuenen Institute|Thünen-Atlas", re.IGNORECASE
     )
 
     # Load JSON
