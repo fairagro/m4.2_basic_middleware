@@ -8,19 +8,23 @@ from pathlib import Path
 import datetime
 import argparse
 import json
+import jq
 import logging
+import subprocess
 from typing import Tuple
+import tempfile
 
 import asyncio
 import aiofiles
 import pytz
 import yaml
-from opentelemetry import trace #, metrics
+from opentelemetry import trace  # , metrics
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.sampling import ALWAYS_ON
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
 # from opentelemetry.sdk.metrics import MeterProvider
 # from opentelemetry.sdk.metrics.export import (
 #     ConsoleMetricExporter,
@@ -59,18 +63,16 @@ def setup_opentelemetry(otlp_config: dict) -> None:
     opentelemetry.instrumentation.urllib.URLLibInstrumentor().instrument()
     opentelemetry.instrumentation.aiohttp_client.AioHttpClientInstrumentor().instrument()
 
-    endpoint = otlp_config.get('endpoint')
+    endpoint = otlp_config.get("endpoint")
     if endpoint:
         # Initialize OpenTelemetry for Tracing to OTLP endpoint
         trace.set_tracer_provider(
             TracerProvider(
-                resource=Resource.create({
-                    "service.name": "FAIRagro middleware"
-                }),
+                resource=Resource.create({"service.name": "FAIRagro middleware"}),
                 active_span_processor=BatchSpanProcessor(
                     OTLPSpanExporter(endpoint=endpoint)
                 ),
-                sampler=ALWAYS_ON
+                sampler=ALWAYS_ON,
             )
         )
     else:
@@ -88,9 +90,10 @@ def setup_opentelemetry(otlp_config: dict) -> None:
 
 
 async def scrape_repo_and_write_to_file(
-        folder_path: str,
-        scraper_config: MetadataScraperConfig,
-        default_http_config: HttpSessionConfig) -> Tuple[str, datetime.datetime]:
+    folder_path: str,
+    scraper_config: MetadataScraperConfig,
+    default_http_config: HttpSessionConfig,
+) -> Tuple[str, datetime.datetime]:
     """
     Scrapes research repository metadata and writes it to a file.
 
@@ -114,15 +117,17 @@ async def scrape_repo_and_write_to_file(
     # simple synchronous gauge values.
     # count_sites = len(sites)
     # count_metadata = len(metadata)
-    path = os.path.join(folder_path, f'{scraper_config.name}.json')
-    async with aiofiles.open(path, 'w', encoding='utf-8') as f:
-        await f.write(json.dumps(metadata, indent=2, ensure_ascii=False, sort_keys=True))
+    path = os.path.join(folder_path, f"{scraper_config.name}.json")
+    async with aiofiles.open(path, "w", encoding="utf-8") as f:
+        await f.write(
+            json.dumps(metadata, indent=2, ensure_ascii=False, sort_keys=True)
+        )
     return path, start_timestamp, report
 
-def commit_to_git(sitemap_url: str,
-                  git_repo: GitRepo,
-                  path: str,
-                  starttime: datetime) -> None:
+
+def commit_to_git(
+    sitemap_url: str, git_repo: GitRepo, path: str, starttime: datetime
+) -> None:
     """
     Create a log message and commit file to git.
 
@@ -141,11 +146,10 @@ def commit_to_git(sitemap_url: str,
     -------
         None
     """
-    formatted_time = starttime.strftime('%Y-%m-%d %H:%M:%S.%f %Z%z')
-    msg = (
-        f'harvested by FAIRargo middleware at {formatted_time} from {sitemap_url}'
-    )
+    formatted_time = starttime.strftime("%Y-%m-%d %H:%M:%S.%f %Z%z")
+    msg = f"harvested by FAIRargo middleware at {formatted_time} from {sitemap_url}"
     git_repo.add_and_commit([path], msg)
+
 
 def setup_andconfig() -> dict:
     """
@@ -154,39 +158,95 @@ def setup_andconfig() -> dict:
 
     try:
         parser = argparse.ArgumentParser(
-            prog = 'fairagro-middleware',
-            description= 'Extracts schema.org meta data from research data repositories.',
+            prog="fairagro-middleware",
+            description="Extracts schema.org meta data from research data repositories.",
         )
-        parser.add_argument('--config', '-c',
-                            type=Path,
-                            default='config.yml',
-                            help='Config file for this tool.')
         parser.add_argument(
-            '--git',
+            "--config",
+            "-c",
+            type=Path,
+            default="config.yml",
+            help="Config file for this tool.",
+        )
+        parser.add_argument(
+            "--git",
             action=argparse.BooleanOptionalAction,
             default=True,
             help=(
-                'Specify this flag to enabled or disable git interactions.'
-                'If disabled the outout files will nevrtheless be written to git.local_path '
-                'as specified within the config file.'
-            )
+                "Specify this flag to enabled or disable git interactions."
+                "If disabled the outout files will nevrtheless be written to git.local_path "
+                "as specified within the config file."
+            ),
         )
         args = parser.parse_args()
 
         if not os.path.isfile(args.config):
-            raise FileNotFoundError(f'Config file {args.config} does not exist.')
+            raise FileNotFoundError(f"Config file {args.config} does not exist.")
 
         # load config
-        with open(args.config, 'r', encoding='utf-8') as f:
+        with open(args.config, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
 
-        setup_opentelemetry(config['opentelemetry'])
+        setup_opentelemetry(config["opentelemetry"])
 
         return args, config
     # pylint: disable-next=broad-except
     except Exception:
         logging.exception("An error occured during initialization")
         sys.exit(1)
+
+
+def transform_publisso_to_publisso_schemaorg():
+    """
+    Transform the Publisso metadata to schema.org format.
+    """
+
+    # Archivos
+    input_file = Path("./output/publisso.json").resolve()
+    jq_script = Path("./scripts/publiso_conversor.jq").resolve()
+
+    if not input_file.exists():
+        print(f"❌ Archivo de entrada no encontrado: {input_file}")
+        return
+
+    # Crear directorio de salida si no existe
+    input_file.parent.mkdir(parents=True, exist_ok=True)
+
+    # Usar archivo temporal para el resultado
+    with tempfile.NamedTemporaryFile(
+        mode="w", delete=False, dir=input_file.parent, suffix=".json"
+    ) as tmp_file:
+        tmp_path = Path(tmp_file.name)
+
+    try:
+        # Ejecutar jq en memoria
+        p1 = subprocess.Popen(
+            ["jq", "-f", str(jq_script), str(input_file)], stdout=subprocess.PIPE
+        )
+        p2 = subprocess.Popen(
+            ["jq", "-s", "."], stdin=p1.stdout, stdout=open(tmp_path, "w")
+        )
+        p1.stdout.close()  # Permite que p1 reciba SIGPIPE si p2 falla
+        p2.communicate()  # Espera a que termine
+
+        # Reemplazar archivo original
+        os.remove(input_file)  # Eliminar input original
+        tmp_path.rename(input_file)  # Renombrar temp como input original
+
+        print(f"✅ Transformación completada, archivo actualizado: {input_file}")
+
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Error al ejecutar jq: {e}")
+        if tmp_path.exists():
+            tmp_path.unlink()
+
+def extract_thunen_from_openagrar_metadata():
+    """
+    Extract Thünen metadata from OpenAgrar metadata.
+    """
+    with open("openagrar_metadata.json", "r", encoding="utf-8") as f:
+        openagrar_metadata = json.load(f)
+
 
 async def main():
     """
@@ -199,30 +259,33 @@ async def main():
         try:
             # setup git repo if desired
             if args.git:
-                git_config = GitRepoConfig(**config['git'])
+                git_config = GitRepoConfig(**config["git"])
                 git_repo = GitRepo(git_config)
                 local_path = git_repo.working_dir
                 git_repo.pull()
             else:
                 git_repo = None
-                local_path = config['git']['local_path']
+                local_path = config["git"]["local_path"]
                 os.makedirs(local_path, exist_ok=True)
 
-            default_http_config = HttpSessionConfig(**config['http_client'])
+            default_http_config = HttpSessionConfig(**config["http_client"])
             full_report = []
             # scrape sites
-            for sitemap in config['sitemaps']:
+            for sitemap in config["sitemaps"]:
                 scraper_config = MetadataScraperConfig(**sitemap)
                 path, starttime, repo_report = await scrape_repo_and_write_to_file(
-                    local_path, scraper_config, default_http_config)
-                full_report += [{'repo_name': sitemap['name'] , **repo_report}]
+                    local_path, scraper_config, default_http_config
+                )
+                full_report += [{"repo_name": sitemap["name"], **repo_report}]
+                if sitemap["name"] == "publisso":
+                    transform_publisso_to_publisso_schemaorg()
                 if git_repo:
                     commit_to_git(scraper_config.url, git_repo, path, starttime)
 
             if git_repo:
                 git_repo.push()
 
-            print(json.dumps(full_report, indent=2, ensure_ascii=False, sort_keys=True))
+            # print(json.dumps(full_report, indent=2, ensure_ascii=False, sort_keys=True))
         # pylint: disable-next=broad-except
         except Exception as e:
             otel_span = trace.get_current_span()
@@ -232,5 +295,6 @@ async def main():
             logging.exception(msg)
             sys.exit(1)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     asyncio.run(main())
