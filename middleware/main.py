@@ -8,7 +8,7 @@ from pathlib import Path
 import datetime
 import argparse
 import json
-import jq
+import re
 import logging
 import subprocess
 from typing import Tuple
@@ -240,12 +240,47 @@ def transform_publisso_to_publisso_schemaorg():
         if tmp_path.exists():
             tmp_path.unlink()
 
+
 def extract_thunen_from_openagrar_metadata():
     """
     Extract Thünen metadata from OpenAgrar metadata.
     """
-    with open("openagrar_metadata.json", "r", encoding="utf-8") as f:
-        openagrar_metadata = json.load(f)
+    # Configuration
+    input_file = Path("./output/openagrar.json").resolve()
+    output_file = Path("./output/thunen.json").resolve()
+
+    if not input_file.exists():
+        print(f"❌ Archivo de entrada no encontrado: {input_file}")
+        return
+    # Regex pattern to match publisher synonyms
+    publisher_pattern = re.compile(
+        r"Thünen[- ]?Institut|Thuenen Institute", re.IGNORECASE
+    )
+
+    # Load JSON
+    with open(input_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    print(f"Found {len(data)} datasets in {input_file}")
+    # Separate datasets
+    filtered = []
+    remaining = []
+    for dataset in data:
+        publisher_name = dataset.get("publisher", {}).get("name", "")
+        if publisher_pattern.search(publisher_name):
+            filtered.append(dataset)
+        else:
+            remaining.append(dataset)
+
+    # Write filtered datasets to new file
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(filtered, f, ensure_ascii=False, indent=2)
+
+    # Update original file with remaining datasets
+    with open(input_file, "w", encoding="utf-8") as f:
+        json.dump(remaining, f, ensure_ascii=False, indent=2)
+
+    print(f"Extracted {len(filtered)} datasets to {output_file}")
+    print(f"{len(remaining)} datasets remain in {input_file}")
 
 
 async def main():
@@ -279,6 +314,8 @@ async def main():
                 full_report += [{"repo_name": sitemap["name"], **repo_report}]
                 if sitemap["name"] == "publisso":
                     transform_publisso_to_publisso_schemaorg()
+                if sitemap["name"] == "openagrar":
+                    extract_thunen_from_openagrar_metadata()
                 if git_repo:
                     commit_to_git(scraper_config.url, git_repo, path, starttime)
 
