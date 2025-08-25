@@ -40,7 +40,7 @@ jobs:
 
       - name: Determine Version
         id: gitversion # id to later be referenced
-        uses: gittools/actions/gitversion/execute@v4
+        uses: gittools/actions/gitversion/execute@v3
 
       - name: Create version tag
         if: github.event_name != 'pull_request'
