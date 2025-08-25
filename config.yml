@@ -23,9 +23,9 @@ sitemaps:
   - name: publisso
     url: "https://frl.publisso.de/find?q=contentType:researchData&from=0&until=200&format=json"
     sitemap: publisso
-  - name: thunen_atlas
-    url: "https://atlas.thuenen.de/api/v2/resources?page_size=200&format=json"
-    sitemap: thunen_atlas
+  # - name: thunen_atlas
+  #   url: "https://atlas.thuenen.de/api/v2/resources?page_size=200&format=json"
+  #   sitemap: thunen_atlas
 
 # Configures the HTTP client uses to download sitemaps and datasets
 http_client:
