@@ -1,7 +1,6 @@
 """
 The main script file for the FAIRagro basic middleware.
 """
-
 import os
 import sys
 from pathlib import Path
@@ -15,6 +14,11 @@ from typing import Tuple
 import tempfile
 
 import asyncio
+
+from git_repo import GitRepo, GitRepoConfig
+from http_session import HttpSessionConfig
+from metadata_scraper import MetadataScraperConfig, scrape_repo
+
 import aiofiles
 import pytz
 import yaml
@@ -40,9 +44,6 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 # Disable pylint warning that imports are not on top. But we need to adapt the import path before.
 # Is there another solution so packages next top the main script can be found?
 # pylint: disable=wrong-import-position
-from metadata_scraper import MetadataScraperConfig, scrape_repo
-from http_session import HttpSessionConfig
-from git_repo import GitRepo, GitRepoConfig
 
 
 def setup_opentelemetry(otlp_config: dict) -> None:
@@ -68,7 +69,8 @@ def setup_opentelemetry(otlp_config: dict) -> None:
         # Initialize OpenTelemetry for Tracing to OTLP endpoint
         trace.set_tracer_provider(
             TracerProvider(
-                resource=Resource.create({"service.name": "FAIRagro middleware"}),
+                resource=Resource.create(
+                    {"service.name": "FAIRagro middleware"}),
                 active_span_processor=BatchSpanProcessor(
                     OTLPSpanExporter(endpoint=endpoint)
                 ),
@@ -181,7 +183,8 @@ def setup_andconfig() -> dict:
         args = parser.parse_args()
 
         if not os.path.isfile(args.config):
-            raise FileNotFoundError(f"Config file {args.config} does not exist.")
+            raise FileNotFoundError(
+                f"Config file {args.config} does not exist.")
 
         # load config
         with open(args.config, "r", encoding="utf-8") as f:
@@ -219,22 +222,20 @@ def transform_publisso_to_publisso_schemaorg():
         tmp_path = Path(tmp_file.name)
 
     try:
-        # Ejecutar jq en memoria
-        p1 = subprocess.Popen(
-            ["jq", "-f", str(jq_script), str(input_file)], stdout=subprocess.PIPE
-        )
-        with open(tmp_path, "w", encoding="utf-8") as outfile:
-            p2 = subprocess.Popen(
-                ["jq", "-s", "."], stdin=p1.stdout, stdout=outfile
-            )
-            p1.stdout.close()  # Permite que p1 reciba SIGPIPE si p2 falla
-            p2.communicate()  # Espera a que termine
+        # Ejecutar jq en memoria usando context managers so resources are cleaned up
+        with subprocess.Popen(["jq", "-f", str(jq_script), str(input_file)], stdout=subprocess.PIPE
+        ) as p1:
+            with open(tmp_path, "w", encoding="utf-8") as outfile:
+                with subprocess.Popen(["jq", "-s", "."], stdin=p1.stdout, stdout=outfile) as p2:
+                    p1.stdout.close()  # Permite que p1 reciba SIGPIPE si p2 falla
+                    p2.communicate()  # Espera a que termine
 
         # Reemplazar archivo original
         os.remove(input_file)  # Eliminar input original
         tmp_path.rename(input_file)  # Renombrar temp como input original
 
-        print(f"✅ Transformación completada, archivo actualizado: {input_file}")
+        print(
+            f"✅ Transformación completada, archivo actualizado: {input_file}")
 
     except subprocess.CalledProcessError as e:
         print(f"❌ Error al ejecutar jq: {e}")
@@ -318,7 +319,8 @@ async def main():
                 if sitemap["name"] == "openagrar":
                     extract_thunen_from_openagrar_metadata()
                 if git_repo:
-                    commit_to_git(scraper_config.url, git_repo, path, starttime)
+                    commit_to_git(scraper_config.url,
+                                  git_repo, path, starttime)
 
             if git_repo:
                 git_repo.push()
