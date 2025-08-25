@@ -34,9 +34,9 @@ jobs:
           fetch-depth: 0 # This is needed for GitVersion not to crash
 
       - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v4
+        uses: gittools/actions/gitversion/setup@v3
         with:
-          versionSpec: "6.3.x"
+          versionSpec: "5.12.0"
 
       - name: Determine Version
         id: gitversion # id to later be referenced
