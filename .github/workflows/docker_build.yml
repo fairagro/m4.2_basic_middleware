@@ -29,7 +29,7 @@ jobs:
       Patch: ${{ steps.gitversion.outputs.Patch }}
     steps:
       - name: Checkout git repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0 # This is needed for GitVersion not to crash
 
@@ -59,7 +59,7 @@ jobs:
 
     steps:
       - name: Checkout git repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
