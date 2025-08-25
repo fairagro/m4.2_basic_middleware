@@ -223,11 +223,12 @@ def transform_publisso_to_publisso_schemaorg():
         p1 = subprocess.Popen(
             ["jq", "-f", str(jq_script), str(input_file)], stdout=subprocess.PIPE
         )
-        p2 = subprocess.Popen(
-            ["jq", "-s", "."], stdin=p1.stdout, stdout=open(tmp_path, "w")
-        )
-        p1.stdout.close()  # Permite que p1 reciba SIGPIPE si p2 falla
-        p2.communicate()  # Espera a que termine
+        with open(tmp_path, "w", encoding="utf-8") as outfile:
+            p2 = subprocess.Popen(
+                ["jq", "-s", "."], stdin=p1.stdout, stdout=outfile
+            )
+            p1.stdout.close()  # Permite que p1 reciba SIGPIPE si p2 falla
+            p2.communicate()  # Espera a que termine
 
         # Reemplazar archivo original
         os.remove(input_file)  # Eliminar input original
