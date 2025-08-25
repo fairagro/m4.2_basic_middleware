@@ -37,6 +37,7 @@ RUN apk add --no-cache \
         python-3.12=3.12.10-r0 \
         py3.12-setuptools=80.0.0-r0 \
         git=2.49.0-r1 \
+        jq=1.8.1-r0 \
         openssh-client=10.0_p1-r0 && \
     mkdir /middleware/output && \
     chown nonroot:nonroot /middleware/output
