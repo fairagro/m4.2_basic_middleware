@@ -11,7 +11,7 @@ RUN apk add --no-cache \
     python-3.12=3.12.10-r0 \
     py3.12-pip=25.1-r0 \
     python-3.12-dev=3.12.10-r0 \
-    jq-1.8.1-r2 \
+    jq=1.8.1-r0 \
     build-base=1-r8
 # Set the user to nonroot. It's defined in the Wolfi base image with the user id 65532
 USER nonroot
