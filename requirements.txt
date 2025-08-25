@@ -20,7 +20,6 @@ html_text==0.7.0
 idna==3.10
 importlib_metadata==8.6.1
 isodate==0.7.2
-jq==1.10.0
 jstyleson==0.0.2
 lxml==5.4.0
 lxml_html_clean==0.4.2
