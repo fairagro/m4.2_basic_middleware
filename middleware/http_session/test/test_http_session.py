@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 from middleware.http_session import HttpSession, HttpSessionConfig
 
+
 class TestHttpSession(unittest.IsolatedAsyncioTestCase):
     """
     The main test class
