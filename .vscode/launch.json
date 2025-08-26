@@ -9,7 +9,7 @@
             "name": "Python Debugger: container-structure-test",
             "type": "debugpy",
             "request": "launch",
-            "program": "middleware/main.py",
+            "module": "middleware.main",
             "console": "integratedTerminal",
             "args": ["-c", "test/container-structure-test/image_test_config.yml", "--no-git"]
         }

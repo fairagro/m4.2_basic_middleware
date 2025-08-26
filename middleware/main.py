@@ -311,7 +311,7 @@ async def main():
                 git_repo.pull()
             else:
                 git_repo = None
-                local_path = config.get("git", {}).get("local_path", "output")
+                local_path = config.get("git", {}).get("local_path", "/tmp/middleware_git")
                 os.makedirs(local_path, exist_ok=True)
 
             default_http_config = HttpSessionConfig(**config["http_client"])

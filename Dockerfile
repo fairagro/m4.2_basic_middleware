@@ -27,6 +27,11 @@ FROM cgr.dev/chainguard/wolfi-base@sha256:e1d402d624011d0f4439bfb0d46a3ddc692465
 # Set the working directory in the container
 # copy python packages from builder stage
 COPY --from=builder /home/nonroot/.local /home/nonroot/.local
+COPY middleware/ /middleware/
+COPY config.yml /middleware/config.yml
+# We also copy the container-structure-test environment. This make it a lot easier to test the resulting container.
+COPY test/ /test/
+COPY entrypoint.sh /entrypoint.sh
 # In in one step, so we do not create layers:
 # Install python, git and ssh (the latter two are needed by the middleware)
 # Actually install the copied packages
@@ -38,19 +43,11 @@ RUN apk add --no-cache \
         git=2.49.0-r1 \
         jq=1.8.1-r2 \
         openssh-client=10.0_p1-r0 && \
-    mkdir -p /middleware/output && \
-    chown nonroot:nonroot /middleware/output
+    chown -R nonroot:nonroot /middleware /test && \
+    chmod +x /entrypoint.sh
 WORKDIR /
-# Set the user to nonroot. It's defined in the Wolfi base image with the user id 65532
-# Copy the application from host
-COPY middleware/ /middleware/
-COPY config.yml /middleware/config.yml
-# We also copy the container-structure-test environment. This make it a lot easier to test the resulting container.
-COPY test/container-structure-test /middleware/test/container-structure-test
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-# Change user context to nonroot
 USER nonroot
+# Change user context to nonroot
 ENTRYPOINT ["/entrypoint.sh"]
 # Set the command to run when the container starts
 CMD ["python", "-m", "middleware.main", "-c", "/middleware/config.yml"]
