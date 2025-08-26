@@ -31,7 +31,7 @@ opentelemetry-exporter-otlp-proto-grpc==1.36.0
 opentelemetry-exporter-otlp-proto-common==1.36.0
 opentelemetry-instrumentation-aiohttp-client==0.53b1
 opentelemetry-instrumentation-requests==0.53b1
-opentelemetry-instrumentation-urllib==0.53b1
+opentelemetry-instrumentation-urllib==0.57b0
 opentelemetry-proto==1.32.1
 opentelemetry-sdk==1.32.1
 opentelemetry-semantic-conventions==0.53b1
