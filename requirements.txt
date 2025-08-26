@@ -21,7 +21,7 @@ idna==3.10
 importlib_metadata==8.7.0
 isodate==0.7.2
 jstyleson==0.0.2
-lxml==5.4.0
+lxml==6.0.1
 lxml_html_clean==0.4.2
 mf2py==2.0.1
 multidict==6.4.3
