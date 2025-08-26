@@ -72,7 +72,7 @@ github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okW
 
     def __init__(self, config: GitRepoConfig) -> None:
         self._config = config
-        self._ssh_tempdir = tempfile.TemporaryDirectory(dir='/tmp/ssh') # pylint: disable=R1732
+        self._ssh_tempdir = tempfile.TemporaryDirectory() # pylint: disable=R1732
         self._ssh_key = os.path.abspath(
             os.path.join(self._ssh_tempdir.name, "ssh_key"))
         self._ssh_authorized_keys = os.path.abspath(

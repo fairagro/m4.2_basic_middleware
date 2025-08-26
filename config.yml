@@ -40,7 +40,7 @@ http_client:
 git:
   repo_url: git@github.com:fairagro/middleware_repo.git
   branch: main
-  local_path: output
+  local_path: /middleware/output
   user_name: "FAIRagro middleware"
   user_email: "middleware@fairagro.net"
 
