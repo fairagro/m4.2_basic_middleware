@@ -11,7 +11,7 @@ __author__ = 'carsten.scharfenberg@zalf.de'
 import json
 from typing import Dict, List
 
-from middleware.metadata_scraper.metadata_extractor import MetadataExtractor, MetadataParseError
+from .metadata_extractor import MetadataExtractor, MetadataParseError
 
 
 class MetadataExtractorJsonld(MetadataExtractor):
@@ -63,6 +63,3 @@ class MetadataExtractorJsonld(MetadataExtractor):
                 A one-element array contains the JSON-LD string.
         """
         return [content]
-
-
-MetadataExtractorJsonld.register_implementation('jsonld')

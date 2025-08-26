@@ -10,8 +10,8 @@ from opentelemetry import trace
 from opentelemetry.semconv.attributes import url_attributes
 
 from middleware.http_session import HttpSession, HttpSessionConfig
-from middleware.metadata_scraper.sitemap_parser import SitemapParser
-from middleware.metadata_scraper.metadata_extractor import MetadataExtractor
+from middleware.metadata_scraper.sitemap_parser.sitemap_parser import SitemapParser
+from middleware.metadata_scraper.metadata_extractor.metadata_extractor import MetadataExtractor
 
 
 class MetadataScraperConfig(NamedTuple):

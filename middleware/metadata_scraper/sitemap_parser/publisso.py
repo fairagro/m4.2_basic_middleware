@@ -10,7 +10,7 @@ __author__ = 'brizuela@ipk-gatersleben.de, c.scharfenberg@zalf.de'
 
 from typing import List
 
-from middleware.metadata_scraper.sitemap_parser import SitemapParser
+from middleware.metadata_scraper.sitemap_parser.sitemap_parser import SitemapParser
 
 
 class SitemapParserPublisso(SitemapParser):
@@ -40,6 +40,3 @@ class SitemapParserPublisso(SitemapParser):
                 The metadata in terms of a list of dictionaries.
         """
         return self.parse_content_as_json()
-
-
-SitemapParserPublisso.register_implementation("publisso")

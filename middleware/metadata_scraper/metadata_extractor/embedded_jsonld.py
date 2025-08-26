@@ -13,7 +13,7 @@ from w3lib.html import get_base_url
 from extruct import extract
 from bs4 import BeautifulSoup
 
-from middleware.metadata_scraper.metadata_extractor import MetadataExtractor, MetadataParseError
+from .metadata_extractor import MetadataExtractor, MetadataParseError
 
 
 class MetadataExtractorEmbeddedJsonld(MetadataExtractor):
@@ -40,7 +40,8 @@ class MetadataExtractorEmbeddedJsonld(MetadataExtractor):
         """
         base_url = get_base_url(content, url)
         try:
-            metadata = extract(content, base_url=base_url, uniform=True, syntaxes=['json-ld'])
+            metadata = extract(content, base_url=base_url,
+                               uniform=True, syntaxes=['json-ld'])
         except Exception as e:
             raise MetadataParseError(e) from e
         return metadata['json-ld']
@@ -62,8 +63,5 @@ class MetadataExtractorEmbeddedJsonld(MetadataExtractor):
         """
         soup = BeautifulSoup(content, 'html.parser')
         json_ld = soup.find_all('script', type='application/ld+json')
-        metadata = [ js.text for js in json_ld ]
+        metadata = [js.text for js in json_ld]
         return metadata
-
-
-MetadataExtractorEmbeddedJsonld.register_implementation('embedded_jsonld')

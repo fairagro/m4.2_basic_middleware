@@ -11,7 +11,7 @@ __author__ = 'carsten.scharfenberg@zalf.de'
 from collections.abc import Iterator
 from xml.etree import ElementTree
 
-from middleware.metadata_scraper.sitemap_parser import SitemapParser
+from middleware.metadata_scraper.sitemap_parser.sitemap_parser import SitemapParser
 
 
 class SitemapParserXml(SitemapParser):
@@ -39,6 +39,3 @@ class SitemapParserXml(SitemapParser):
         for url in xml_root.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}loc' ):
             if url.text is not None:
                 yield url.text
-
-
-SitemapParserXml.register_implementation("xml")

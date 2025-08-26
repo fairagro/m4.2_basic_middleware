@@ -11,7 +11,7 @@ __author__ = 'brizuela@ipk-gatersleben.de'
 from collections.abc import Iterator
 import json
 
-from middleware.metadata_scraper.sitemap_parser import SitemapParser
+from middleware.metadata_scraper.sitemap_parser.sitemap_parser import SitemapParser
 
 
 BASE_URL = 'https://www.openagrar.de/receive/'
@@ -41,6 +41,3 @@ class SitemapParserOpenAgrar(SitemapParser):
         mods_ids = [doc['id'] for doc in json_objs['response']['docs']]
         for mid in mods_ids:
             yield f"{BASE_URL}{mid}"
-
-
-SitemapParserOpenAgrar.register_implementation("openagrar")

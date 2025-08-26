@@ -10,7 +10,7 @@ __author__ = 'brizuela@ipk-gatersleben.de, carsten.scharfenberg@zalf.de'
 
 from typing import List
 
-from middleware.metadata_scraper.sitemap_parser import SitemapParser
+from middleware.metadata_scraper.sitemap_parser.sitemap_parser import SitemapParser
 
 
 class SitemapParserThunenAtlas(SitemapParser):
@@ -40,6 +40,3 @@ class SitemapParserThunenAtlas(SitemapParser):
                 The metadata in terms of a list of dictionaries.
         """
         return self.parse_content_as_json()['resources']
-
-
-SitemapParserThunenAtlas.register_implementation("thunen_atlas")

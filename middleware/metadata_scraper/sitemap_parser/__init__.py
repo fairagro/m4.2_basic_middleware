@@ -1,124 +1,14 @@
 """
-This module define the abtract base class for sitemap parsers.
+Sitemap parser package.
+Register available implementations of SitemapParser.
 """
 
-from collections.abc import Iterator
-from typing import Any, Dict, List, Tuple
-import json
+from .openagrar import SitemapParserOpenAgrar
+from .publisso import SitemapParserPublisso
+from .thunen_atlas import SitemapParserThunenAtlas
+from .xml import SitemapParserXml
 
-from middleware.utils.registering_abc import RegisteringABC
-
-
-class SitemapParseError(RuntimeError):
-    """
-    An excpetion of this type will be thrown by implementations of SitemapParser
-    if the content cannot be parsed.
-    """
-
-    def __init__(self, inner_stuff: Exception | str) -> None:
-        super().__init__(f"Failed to parse metadata: {str(inner_stuff)}")
-        self.inner_stuff = inner_stuff
-
-
-class SitemapParser(RegisteringABC):
-    """
-    An abstract base class for sitemap parsers.
-    It will abstract away the type of sitemap (xml, json, etc.).
-    """
-
-    def __init__(self, content: str) -> None:
-        """
-        Initializes the sitemap parser. Essentially stores the content.
-        """
-        self._content = content
-
-    @property
-    def content(self) -> str:
-        """
-        Returns the content of the sitemap.
-        """
-        return self._content
-
-    @property
-    def metadata(self) -> Tuple[List[Dict], Dict]:
-        """
-        Return the metadata in case it is already included in the sitemap.
-        Will raise an exception of type 'MetadataParseError' if the metadata cannot be parsed.
-        
-        Returns
-        -------
-            List[dict]
-                The metadata in terms of a list of dictionaries.
-        """
-        if not self.content:
-            # we treat empty content as an error to be consistent with the extruct library
-            raise SitemapParseError("Empty content")
-        metadata = self.get_metadata()
-        if not isinstance(metadata, list):
-            metadata: List[Dict] = [metadata]
-        report = {
-            'valid_entries': len(metadata),
-            'failed_entries': 0
-        }
-        return metadata, report
-
-    @property
-    def datasets(self) -> Iterator[str]:
-        """
-        A generator method that returns the URLs to all datasets of the repository.
-        Defaults to yield nothing.
-
-        Yields
-        ------
-            str
-                A string with the URL to the next dataset.
-        """
-        yield from []
-
-    @property
-    def has_metadata(self) -> bool:
-        """
-        A method that returns whether the "sitemap" already contains all needed metadata.
-        Defaults to return False.
-
-        Returns
-        -------
-            bool
-                Flag indicating whether the "sitemap" already contains all needed metadata.
-        """
-        return False
-
-    def get_metadata(self) -> List[Dict]:
-        """
-        Returns the metadata in case it is already included in the "sitemap".
-        Will raise an exception of type 'MetadataParseError' if the metadata cannot be parsed.
-        Defaults to return an empty array.
-
-        Returns
-        -------
-            List[dict]
-                A list of dictionaries containing the extracted metadata.
-        """
-        return []
-
-    def parse_content_as_json(self) -> Any:
-        """
-        A utility method to be used by implementations of SitemapParser when overriding
-        'get_metadata'. It will parse the sitemap content as JSON and return the result.
-
-        Returns
-        -------
-            List[dict]
-                A list of dictionaries containing the parsed JSON.
-        """
-        try:
-            json_objs = json.loads(self.content)
-        except json.JSONDecodeError as e:
-            raise SitemapParseError(e) from e
-        return json_objs
-
-
-from .openagrar import SitemapParserOpenAgrar  # noqa: E402, F401
-from .publisso import SitemapParserPublisso # noqa: E402, F401
-from .thunen_atlas import SitemapParserThunenAtlas # noqa: E402, F401
-from .xml import SitemapParserXml # noqa: E402, F401
+SitemapParserOpenAgrar.register_implementation("openagrar")
+SitemapParserPublisso.register_implementation("publisso")
+SitemapParserThunenAtlas.register_implementation("thunen_atlas")
+SitemapParserXml.register_implementation("xml")
