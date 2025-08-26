@@ -339,7 +339,7 @@ async def main():
             if git_repo:
                 git_repo.push()
 
-            # print(json.dumps(full_report, indent=2, ensure_ascii=False, sort_keys=True))
+            print(json.dumps(full_report, indent=2, ensure_ascii=False, sort_keys=True))
         # pylint: disable-next=broad-except
         except Exception as e:
             otel_span = trace.get_current_span()
