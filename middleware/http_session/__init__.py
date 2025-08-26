@@ -2,4 +2,4 @@
 This package currently only consists of one public module: http_session
 """
 
-from .http_session import *
+from .http_session import * # noqa: F403

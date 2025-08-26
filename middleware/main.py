@@ -10,7 +10,7 @@ import json
 import re
 import logging
 import subprocess
-from typing import Tuple
+from typing import Dict, Tuple
 import tempfile
 
 import asyncio
@@ -67,16 +67,16 @@ def setup_opentelemetry(otlp_config: dict) -> None:
     endpoint = otlp_config.get("endpoint")
     if endpoint:
         # Initialize OpenTelemetry for Tracing to OTLP endpoint
-        trace.set_tracer_provider(
-            TracerProvider(
-                resource=Resource.create(
-                    {"service.name": "FAIRagro middleware"}),
-                active_span_processor=BatchSpanProcessor(
-                    OTLPSpanExporter(endpoint=endpoint)
-                ),
-                sampler=ALWAYS_ON,
-            )
+        provider = TracerProvider(
+            resource=Resource.create(
+                {"service.name": "FAIRagro middleware"}
+            ),
+            sampler=ALWAYS_ON
         )
+        provider.add_span_processor(
+            BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
+        )
+        trace.set_tracer_provider(provider)
     else:
         trace.set_tracer_provider(TracerProvider())
 
@@ -92,16 +92,16 @@ def setup_opentelemetry(otlp_config: dict) -> None:
 
 
 async def scrape_repo_and_write_to_file(
-    folder_path: str,
+    folder_path: Path,
     scraper_config: MetadataScraperConfig,
     default_http_config: HttpSessionConfig,
-) -> Tuple[str, datetime.datetime]:
+) -> Tuple[Path, datetime.datetime, Dict]:
     """
     Scrapes research repository metadata and writes it to a file.
 
     Arguments
     ---------
-        folder_path : str
+        folder_path : Path
             The folder path where the file should be saved.
         scraper_config : dict
             The configuration for the metadata scraper.
@@ -119,7 +119,7 @@ async def scrape_repo_and_write_to_file(
     # simple synchronous gauge values.
     # count_sites = len(sites)
     # count_metadata = len(metadata)
-    path = os.path.join(folder_path, f"{scraper_config.name}.json")
+    path = Path(os.path.join(folder_path, f"{scraper_config.name}.json"))
     async with aiofiles.open(path, "w", encoding="utf-8") as f:
         await f.write(
             json.dumps(metadata, indent=2, ensure_ascii=False, sort_keys=True)
@@ -128,7 +128,7 @@ async def scrape_repo_and_write_to_file(
 
 
 def commit_to_git(
-    sitemap_url: str, git_repo: GitRepo, path: str, starttime: datetime
+    sitemap_url: str, git_repo: GitRepo, path: Path, starttime: datetime.datetime
 ) -> None:
     """
     Create a log message and commit file to git.
@@ -153,7 +153,7 @@ def commit_to_git(
     git_repo.add_and_commit([path], msg)
 
 
-def setup_andconfig() -> dict:
+def setup_and_config() -> Tuple[argparse.Namespace, Dict]:
     """
     This function will perform setup work and reads the configuration file.
     """
@@ -223,12 +223,26 @@ def transform_publisso_to_publisso_schemaorg():
 
     try:
         # Ejecutar jq en memoria usando context managers so resources are cleaned up
-        with subprocess.Popen(["jq", "-f", str(jq_script), str(input_file)], stdout=subprocess.PIPE
+        with subprocess.Popen(
+            ["jq", "-f", str(jq_script), str(input_file)],
+            stdout=subprocess.PIPE,
+            text=True
         ) as p1:
             with open(tmp_path, "w", encoding="utf-8") as outfile:
-                with subprocess.Popen(["jq", "-s", "."], stdin=p1.stdout, stdout=outfile) as p2:
-                    p1.stdout.close()  # Permite que p1 reciba SIGPIPE si p2 falla
-                    p2.communicate()  # Espera a que termine
+                with subprocess.Popen(
+                    ["jq", "-s", "."],
+                    stdin=p1.stdout,
+                    stdout=outfile,
+                    text=True
+                ) as p2:
+                    if p1.stdout is not None:
+                        p1.stdout.close()  # Permite que p1 reciba SIGPIPE si p2 falla
+                    p2.communicate()
+
+                    if p1.wait() != 0:
+                        raise RuntimeError(f"jq script failed with exit code {p1.returncode}")
+                    if p2.returncode != 0:
+                        raise RuntimeError(f"jq merge failed with exit code {p2.returncode}")
 
         # Reemplazar archivo original
         os.remove(input_file)  # Eliminar input original
@@ -290,7 +304,7 @@ async def main():
     The main async function of the basic middleware
     """
 
-    args, config = setup_andconfig()
+    args, config = setup_and_config()
 
     with trace.get_tracer(__name__).start_as_current_span("main") as otel_span:
         try:
@@ -302,7 +316,7 @@ async def main():
                 git_repo.pull()
             else:
                 git_repo = None
-                local_path = config["git"]["local_path"]
+                local_path = config.get("git", {}).get("local_path", "output")
                 os.makedirs(local_path, exist_ok=True)
 
             default_http_config = HttpSessionConfig(**config["http_client"])
@@ -311,7 +325,7 @@ async def main():
             for sitemap in config["sitemaps"]:
                 scraper_config = MetadataScraperConfig(**sitemap)
                 path, starttime, repo_report = await scrape_repo_and_write_to_file(
-                    local_path, scraper_config, default_http_config
+                    Path(local_path), scraper_config, default_http_config
                 )
                 full_report += [{"repo_name": sitemap["name"], **repo_report}]
                 if sitemap["name"] == "publisso":

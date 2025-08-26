@@ -106,7 +106,7 @@ class HttpSession(ClientSession):
         if parsed_url.scheme in ["http", "https"]:
             async with self.get(url) as response:
                 encoded_content = await response.read()
-                encoding = chardet.detect(encoded_content)['encoding']
+                encoding = str(chardet.detect(encoded_content)['encoding'])
                 content = encoded_content.decode(encoding)
         elif parsed_url.scheme == "file":
             # We need to deal with the following situation:

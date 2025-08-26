@@ -2,7 +2,8 @@
 This module define the abtract base class for sitemap parsers.
 """
 
-from typing import Dict, List, Tuple
+from collections.abc import Iterator
+from typing import Any, Dict, List, Tuple
 import json
 
 from utils.registering_abc import RegisteringABC
@@ -14,9 +15,9 @@ class SitemapParseError(RuntimeError):
     if the content cannot be parsed.
     """
 
-    def __init__(self, inner_exception: Exception) -> None:
-        super().__init__(f"Failed to parse metadata: {inner_exception}")
-        self.inner_exception = inner_exception
+    def __init__(self, inner_stuff: Exception | str) -> None:
+        super().__init__(f"Failed to parse metadata: {str(inner_stuff)}")
+        self.inner_stuff = inner_stuff
 
 
 class SitemapParser(RegisteringABC):
@@ -39,7 +40,7 @@ class SitemapParser(RegisteringABC):
         return self._content
 
     @property
-    def metadata(self) -> Tuple[List[dict], Dict]:
+    def metadata(self) -> Tuple[List[Dict], Dict]:
         """
         Return the metadata in case it is already included in the sitemap.
         Will raise an exception of type 'MetadataParseError' if the metadata cannot be parsed.
@@ -54,7 +55,7 @@ class SitemapParser(RegisteringABC):
             raise SitemapParseError("Empty content")
         metadata = self.get_metadata()
         if not isinstance(metadata, list):
-            metadata = [metadata]
+            metadata: List[Dict] = [metadata]
         report = {
             'valid_entries': len(metadata),
             'failed_entries': 0
@@ -62,7 +63,7 @@ class SitemapParser(RegisteringABC):
         return metadata, report
 
     @property
-    def datasets(self) -> str:
+    def datasets(self) -> Iterator[str]:
         """
         A generator method that returns the URLs to all datasets of the repository.
         Defaults to yield nothing.
@@ -87,7 +88,7 @@ class SitemapParser(RegisteringABC):
         """
         return False
 
-    def get_metadata(self) -> List[dict]:
+    def get_metadata(self) -> List[Dict]:
         """
         Returns the metadata in case it is already included in the "sitemap".
         Will raise an exception of type 'MetadataParseError' if the metadata cannot be parsed.
@@ -100,10 +101,10 @@ class SitemapParser(RegisteringABC):
         """
         return []
 
-    def parse_content_as_json(self) -> List[dict]:
+    def parse_content_as_json(self) -> Any:
         """
         A utility method to be used by implementations of SitemapParser when overriding
-        'get_metadata'. It will parse the sitempa content as JSON and return the result.
+        'get_metadata'. It will parse the sitemap content as JSON and return the result.
 
         Returns
         -------

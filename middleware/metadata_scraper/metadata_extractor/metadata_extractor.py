@@ -16,9 +16,9 @@ class MetadataParseError(RuntimeError):
     if the content cannot be parsed.
     """
 
-    def __init__(self, inner_exception: Exception) -> None:
-        super().__init__(f"Failed to parse metadata: {inner_exception}")
-        self.inner_exception = inner_exception
+    def __init__(self, inner_stuff: Exception | str) -> None:
+        super().__init__(f"Failed to parse metadata: {str(inner_stuff)}")
+        self.inner_stuff = inner_stuff
 
 
 class MetadataExtractor(RegisteringABC):

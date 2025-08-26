@@ -20,7 +20,7 @@ __author__ = 'carsten.scharfenberg@zalf.de'
 
 
 from types import TracebackType
-from typing import Annotated, List, NamedTuple, Optional, Type, Union
+from typing import Annotated, Any, List, NamedTuple, Type, Union
 from pathlib import Path, PurePosixPath
 import os
 import tempfile
@@ -37,8 +37,7 @@ class GitRepoConfig(NamedTuple):
     local_path: Annotated[str, "The local path of the git repository"]
     user_name: Annotated[str, "The name of git user"]
     user_email: Annotated[str, "The email address of git usere"]
-    branch: Annotated[Optional[str],
-                      "The branch of the git repository"] = "main"
+    branch: Annotated[str, "The branch of the git repository"] = "main"
 
 
 class GitRepo:
@@ -147,7 +146,7 @@ github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okW
         self._repo.index.add(files)
         return self._repo.index.commit(message)
 
-    def pull(self) -> any:
+    def pull(self) -> Any:
         """
         Performs a pull from origin on the git repo.
 
@@ -158,7 +157,7 @@ github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okW
         """
         return self._repo.remotes.origin.pull()
 
-    def push(self) -> any:
+    def push(self) -> Any:
         """
         Performs a push to origin on the git repo.
 
@@ -221,7 +220,7 @@ github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okW
             if repo.remotes.origin.url != self._config.repo_url:
                 raise RuntimeError("Repository " + local_path + "already exists and is not a " +
                                    " clone of " + self._config.repo_url)
-        except (git.exc.NoSuchPathError, git.exc.InvalidGitRepositoryError):
+        except (git.NoSuchPathError, git.InvalidGitRepositoryError):
             repo = git.Repo.clone_from(self._config.repo_url, local_path)
 
         # set git config

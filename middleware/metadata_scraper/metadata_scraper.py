@@ -7,7 +7,7 @@ import asyncio
 import itertools
 from typing import Annotated, Dict, List, NamedTuple, Optional, Tuple
 from opentelemetry import trace
-from opentelemetry.semconv.trace import SpanAttributes
+from opentelemetry.semconv.attributes import url_attributes
 
 from http_session import HttpSession, HttpSessionConfig
 from .sitemap_parser import SitemapParser
@@ -52,7 +52,7 @@ async def _extract_metadata(
     """
     with trace.get_tracer(__name__).start_as_current_span(
             "MetadataScraper.extract_metadata") as otel_span:
-        otel_span.set_attribute(SpanAttributes.URL_FULL, url)
+        otel_span.set_attribute(url_attributes.URL_FULL, url)
         content = await session.get_decoded_url(url)
         metadata = extractor.get_metadata_or_log_error(content, url)
         return metadata
@@ -126,7 +126,14 @@ async def scrape_repo(
             parser = SitemapParser.create_instance(config.sitemap, sitemap_content)
             if parser.has_metadata:
                 return parser.metadata
-            urls = parser.datasets
-            extractor = MetadataExtractor.create_instance(config.metadata)
-            metadata, report = await _extract_many_metadata(urls, session, extractor)
+            urls = list(parser.datasets)
+            if config.metadata:
+                extractor = MetadataExtractor.create_instance(config.metadata)
+                metadata, report = await _extract_many_metadata(urls, session, extractor)
+            else:
+                metadata = []
+                report = {
+                    'valid_entries': 0,
+                    'failed_entries': 0
+                }
             return metadata, report
