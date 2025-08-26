@@ -40,6 +40,7 @@ RUN apk add --no-cache \
         openssh-client=10.0_p1-r0 && \
     mkdir -p /middleware/output && \
     chown nonroot:nonroot /middleware/output
+WORKDIR /
 # Set the user to nonroot. It's defined in the Wolfi base image with the user id 65532
 # Copy the application from host
 COPY middleware/ /middleware/

@@ -9,8 +9,8 @@ metadataTest:
   exposedPorts: []
   volumes: []
   entrypoint: [/entrypoint.sh]
-  cmd: ["python", "main.py", "-c", "config.yml"]
-  workdir: /middleware
+  cmd: ["python", "-m", "middleware.main", "-c", "/middleware/config.yml"]
+  workdir: /
   user: nonroot
 
 fileExistenceTests:
@@ -23,9 +23,10 @@ commandTests:
     command: "python"
     args:
       [
-        "main.py",
+        "-m",
+        "middleware.main",
         "-c",
-        "test/container-structure-test/image_test_config.yml",
+        "/middleware/test/container-structure-test/image_test_config.yml",
         "--no-git",
       ]
     expectedOutput:
