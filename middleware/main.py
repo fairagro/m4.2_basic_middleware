@@ -15,9 +15,9 @@ import tempfile
 
 import asyncio
 
-from git_repo import GitRepo, GitRepoConfig
-from http_session import HttpSessionConfig
-from metadata_scraper import MetadataScraperConfig, scrape_repo
+from middleware.git_repo import GitRepo, GitRepoConfig
+from middleware.http_session import HttpSessionConfig
+from middleware.metadata_scraper import MetadataScraperConfig, scrape_repo
 
 import aiofiles
 import pytz

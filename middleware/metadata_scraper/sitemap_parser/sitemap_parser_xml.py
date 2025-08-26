@@ -11,7 +11,7 @@ __author__ = 'carsten.scharfenberg@zalf.de'
 from collections.abc import Iterator
 from xml.etree import ElementTree
 
-from .sitemap_parser import SitemapParser
+from middleware.metadata_scraper.sitemap_parser import SitemapParser
 
 
 class SitemapParserXml(SitemapParser):

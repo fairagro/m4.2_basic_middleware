@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 import logging
 from opentelemetry import trace
 
-from utils.registering_abc import RegisteringABC
+from middleware.utils.registering_abc import RegisteringABC
 
 
 class MetadataParseError(RuntimeError):

@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from typing import Any, Dict, List, Tuple
 import json
 
-from utils.registering_abc import RegisteringABC
+from middleware.utils.registering_abc import RegisteringABC
 
 
 class SitemapParseError(RuntimeError):

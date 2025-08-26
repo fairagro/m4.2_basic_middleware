@@ -2,8 +2,8 @@
 
 import unittest
 
-from metadata_scraper.metadata_extractor.metadata_extractor_jsonld import MetadataExtractorJsonld
-from metadata_scraper.metadata_extractor import MetadataParseError
+from middleware.metadata_scraper.metadata_extractor.metadata_extractor_jsonld import MetadataExtractorJsonld
+from middleware.metadata_scraper.metadata_extractor import MetadataParseError
 from utils import assertListofCodesEqual
 
 

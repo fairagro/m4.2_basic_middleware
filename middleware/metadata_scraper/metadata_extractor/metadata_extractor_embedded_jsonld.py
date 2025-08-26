@@ -13,7 +13,7 @@ from w3lib.html import get_base_url
 from extruct import extract
 from bs4 import BeautifulSoup
 
-from .metadata_extractor import MetadataExtractor, MetadataParseError
+from middleware.metadata_scraper.metadata_extractor import MetadataExtractor, MetadataParseError
 
 
 class MetadataExtractorEmbeddedJsonld(MetadataExtractor):

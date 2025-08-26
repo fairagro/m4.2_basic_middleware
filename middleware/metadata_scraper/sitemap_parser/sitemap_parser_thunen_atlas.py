@@ -10,7 +10,7 @@ __author__ = 'brizuela@ipk-gatersleben.de, carsten.scharfenberg@zalf.de'
 
 from typing import List
 
-from .sitemap_parser import SitemapParser
+from middleware.metadata_scraper.sitemap_parser import SitemapParser
 
 
 class SitemapParserThunenAtlas(SitemapParser):
