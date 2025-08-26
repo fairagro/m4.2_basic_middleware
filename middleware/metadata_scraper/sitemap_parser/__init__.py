@@ -116,3 +116,9 @@ class SitemapParser(RegisteringABC):
         except json.JSONDecodeError as e:
             raise SitemapParseError(e) from e
         return json_objs
+
+
+from .openagrar import SitemapParserOpenAgrar  # noqa: E402, F401
+from .publisso import SitemapParserPublisso # noqa: E402, F401
+from .thunen_atlas import SitemapParserThunenAtlas # noqa: E402, F401
+from .xml import SitemapParserXml # noqa: E402, F401

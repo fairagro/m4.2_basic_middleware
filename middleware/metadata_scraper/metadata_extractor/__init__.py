@@ -112,3 +112,6 @@ class MetadataExtractor(RegisteringABC):
                 otel_span.add_event(msg)
                 logging.exception("%s, suspicious data:\n%s", msg, suspicious_data)
                 return None
+
+from .embedded_jsonld import MetadataExtractorEmbeddedJsonld  # noqa: E402, F401
+from .jsonld import MetadataExtractorJsonld  # noqa: E402, F401
