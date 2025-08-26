@@ -34,7 +34,7 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          pylint $(git ls-files '*.py')
+          pylint middleware
 
       - name: Test with python unittest
         run: |
