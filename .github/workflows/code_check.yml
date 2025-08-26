@@ -30,6 +30,10 @@ jobs:
           pip install -r requirements.txt
           pip install pylint
 
+      - name: Clean python cache
+        run: |
+          find . -type d -name "__pycache__" -exec rm -rf {} +
+
       - name: Lint with pylint
         env:
           PYTHONPATH: ${{ github.workspace }}
