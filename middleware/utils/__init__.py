@@ -2,5 +2,5 @@
 A package to collect assorted python utility functions and classes.
 """
 
-from .test_utils import * # noqa: F403
-from .registering_abc import * # noqa: F403
+from . import registering_abc # noqa: F401
+from . import test_utils # noqa: F401

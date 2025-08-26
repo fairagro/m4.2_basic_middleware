@@ -15,10 +15,6 @@ import tempfile
 
 import asyncio
 
-from middleware.git_repo import GitRepo, GitRepoConfig
-from middleware.http_session import HttpSessionConfig
-from middleware.metadata_scraper import MetadataScraperConfig, scrape_repo
-
 import aiofiles
 import pytz
 import yaml
@@ -29,14 +25,13 @@ from opentelemetry.sdk.trace.sampling import ALWAYS_ON
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
-# from opentelemetry.sdk.metrics import MeterProvider
-# from opentelemetry.sdk.metrics.export import (
-#     ConsoleMetricExporter,
-#     PeriodicExportingMetricReader,
-# )
 import opentelemetry.instrumentation.requests
 import opentelemetry.instrumentation.urllib
 import opentelemetry.instrumentation.aiohttp_client
+
+from middleware.git_repo import GitRepo, GitRepoConfig
+from middleware.http_session import HttpSessionConfig
+from middleware.metadata_scraper import MetadataScraperConfig, scrape_repo
 
 # add the script directory to the python module path
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
