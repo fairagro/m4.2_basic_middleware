@@ -14,7 +14,7 @@ http_client:
 # This config is required even if do not use git, because we need a local working directory in any
 # case.
 git:
-  local_path: output
+  local_path: /tmp/middleware_git
 
 # This config is required
 opentelemetry: {}

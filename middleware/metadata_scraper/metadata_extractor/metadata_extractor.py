@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 import logging
 from opentelemetry import trace
 
-from utils.registering_abc import RegisteringABC
+from middleware.utils.registering_abc import RegisteringABC
 
 
 class MetadataParseError(RuntimeError):
@@ -16,9 +16,9 @@ class MetadataParseError(RuntimeError):
     if the content cannot be parsed.
     """
 
-    def __init__(self, inner_exception: Exception) -> None:
-        super().__init__(f"Failed to parse metadata: {inner_exception}")
-        self.inner_exception = inner_exception
+    def __init__(self, inner_stuff: Exception | str) -> None:
+        super().__init__(f"Failed to parse metadata: {str(inner_stuff)}")
+        self.inner_stuff = inner_stuff
 
 
 class MetadataExtractor(RegisteringABC):
@@ -34,7 +34,7 @@ class MetadataExtractor(RegisteringABC):
             'MetadataParseError'.
         raw_metadata(content)
             An abstract method that is expected to extract metadata from the given content in
-            terms of a list of strings. It is expected not to raise exceptions of type
+            terms of a list of strings. It is expected not t>o raise exceptions of type
             'MetadataParseError.
         get_metadata_or_log_error(content, url)
             A wrapper method around 'metadata' that catches 'MetadataParseError' excpetions and

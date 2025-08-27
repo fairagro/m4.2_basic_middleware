@@ -8,9 +8,10 @@ __version__ = '0.1.0'
 __author__ = 'carsten.scharfenberg@zalf.de'
 
 
+from collections.abc import Iterator
 from xml.etree import ElementTree
 
-from .sitemap_parser import SitemapParser
+from middleware.metadata_scraper.sitemap_parser.sitemap_parser import SitemapParser
 
 
 class SitemapParserXml(SitemapParser):
@@ -20,7 +21,7 @@ class SitemapParserXml(SitemapParser):
     """
 
     @property
-    def datasets(self,) -> str:
+    def datasets(self,) -> Iterator[str]:
         """
         A generator method that returns the URLs to all datasets of the repository.
 
@@ -36,7 +37,5 @@ class SitemapParserXml(SitemapParser):
         """
         xml_root = ElementTree.fromstring(self.content)
         for url in xml_root.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}loc' ):
-            yield url.text
-
-
-SitemapParserXml.register_implementation("xml")
+            if url.text is not None:
+                yield url.text

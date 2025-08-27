@@ -63,6 +63,3 @@ class MetadataExtractorJsonld(MetadataExtractor):
                 A one-element array contains the JSON-LD string.
         """
         return [content]
-
-
-MetadataExtractorJsonld.register_implementation('jsonld')

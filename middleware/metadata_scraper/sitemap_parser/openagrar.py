@@ -8,9 +8,10 @@ __version__ = '0.1.0'
 __author__ = 'brizuela@ipk-gatersleben.de'
 
 
+from collections.abc import Iterator
 import json
 
-from .sitemap_parser import SitemapParser
+from middleware.metadata_scraper.sitemap_parser.sitemap_parser import SitemapParser
 
 
 BASE_URL = 'https://www.openagrar.de/receive/'
@@ -22,7 +23,7 @@ class SitemapParserOpenAgrar(SitemapParser):
     """
 
     @property
-    def datasets(self) -> str:
+    def datasets(self) -> Iterator[str]:
         """
         A generator method that returns the URLs to all datasets of the repository.
 
@@ -40,6 +41,3 @@ class SitemapParserOpenAgrar(SitemapParser):
         mods_ids = [doc['id'] for doc in json_objs['response']['docs']]
         for mid in mods_ids:
             yield f"{BASE_URL}{mid}"
-
-
-SitemapParserOpenAgrar.register_implementation("openagrar")

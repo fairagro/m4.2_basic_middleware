@@ -1,11 +1,14 @@
 """
-This package currently only consists of one public module: sitemap_parser
+Sitemap parser package.
+Register available implementations of SitemapParser.
 """
 
-from .sitemap_parser import *
+from .openagrar import SitemapParserOpenAgrar
+from .publisso import SitemapParserPublisso
+from .thunen_atlas import SitemapParserThunenAtlas
+from .xml import SitemapParserXml
 
-# We need to also import these submodules as this is required by the registration process
-from .sitemap_parser_xml import *
-from .sitemap_parser_openagrar import *
-from .sitemap_parser_publisso import *
-from .sitemap_parser_thunen_atlas import *
+SitemapParserOpenAgrar.register_implementation("openagrar")
+SitemapParserPublisso.register_implementation("publisso")
+SitemapParserThunenAtlas.register_implementation("thunen_atlas")
+SitemapParserXml.register_implementation("xml")

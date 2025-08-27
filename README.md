@@ -71,7 +71,7 @@ A few notes on this docker run call:
   is passed as environment variable `SSH_PRIVATE_KEY`. This is to prevent from permission issues. The ssh key is for git interaction with the
   remote repository specified in the config file. Of course it needs to be already known to the git repo.
 - The local git working folder would preferably also be mounted into the container so its contents could be cached between container runs.
-  But this seems not to be possible -- at least not without administrational permission on the host machine. The issue is that mounted 
+  But this seems not to be possible -- at least not without administrational permission on the host machine. The issue is that mounted
   volumes always belong to root, but the container does not run with root permissions, so it has no write access to the folder.
 
 ## Notes on the python version ##
