@@ -10,8 +10,7 @@ import json
 import re
 import logging
 import subprocess
-from typing import Dict, Tuple
-import tempfile
+from typing import Dict, List, Tuple
 
 import asyncio
 
@@ -196,75 +195,82 @@ def setup_and_config() -> Tuple[argparse.Namespace, Dict]:
         sys.exit(1)
 
 
-def transform_publisso_to_publisso_schemaorg():
+def transform_publisso_to_publisso_schemaorg(
+    input_file: Path,
+    original_report: Dict
+) -> Tuple[List[Path], List[Dict]]:
     """
     Transform the Publisso metadata to schema.org format.
     """
 
     # Archivos
-    input_file = Path("./output/publisso.json").resolve()
-    jq_script = Path("./scripts/publiso_conversor.jq").resolve()
+    output_file = input_file.parent / "publisso.json"
+    jq_script = Path(__file__).parent / "scripts/publiso_conversor.jq"
 
     if not input_file.exists():
-        print(f"❌ Archivo de entrada no encontrado: {input_file}")
-        return
-
-    # Crear directorio de salida si no existe
-    input_file.parent.mkdir(parents=True, exist_ok=True)
-
-    # Usar archivo temporal para el resultado
-    with tempfile.NamedTemporaryFile(
-        mode="w", delete=False, dir=input_file.parent, suffix=".json"
-    ) as tmp_file:
-        tmp_path = Path(tmp_file.name)
+        logging.warning("❌ Archivo de entrada no encontrado: %s", input_file)
+        return ([],[])
 
     try:
         # Ejecutar jq en memoria usando context managers so resources are cleaned up
         with subprocess.Popen(
             ["jq", "-f", str(jq_script), str(input_file)],
             stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True
         ) as p1:
-            with open(tmp_path, "w", encoding="utf-8") as outfile:
+            with open(output_file, "w", encoding="utf-8") as outfile:
                 with subprocess.Popen(
                     ["jq", "-s", "."],
                     stdin=p1.stdout,
                     stdout=outfile,
+                    stderr=subprocess.PIPE,
                     text=True
                 ) as p2:
                     if p1.stdout is not None:
                         p1.stdout.close()  # Permite que p1 reciba SIGPIPE si p2 falla
-                    p2.communicate()
+                    _, err2 = p2.communicate()
+                    _, err1 = p1.communicate()
 
                     if p1.wait() != 0:
-                        raise RuntimeError(f"jq script failed with exit code {p1.returncode}")
+                        logging.error(
+                            "jq script failed with exit code %s. stderr: %s",
+                            p1.returncode, err1)
+                        # Do not return, just log the error and continue, as it could be
+                        # that the output is still valid
+                        # return ([],[])
                     if p2.returncode != 0:
-                        raise RuntimeError(f"jq merge failed with exit code {p2.returncode}")
-
-        # Reemplazar archivo original
-        os.remove(input_file)  # Eliminar input original
-        tmp_path.rename(input_file)  # Renombrar temp como input original
-
-        print(
-            f"✅ Transformación completada, archivo actualizado: {input_file}")
-
+                        logging.error(
+                            "jq merge failed with exit code %s. stderr: %s",
+                            p2.returncode, err2)
+                        # Do not return, just log the error and continue, as it could be
+                        # that the output is still valid
+                        # return ([],[])
     except subprocess.CalledProcessError as e:
-        print(f"❌ Error al ejecutar jq: {e}")
-        if tmp_path.exists():
-            tmp_path.unlink()
+        logging.error("❌ Error al ejecutar jq: %s", str(e))
+        return ([],[])
+
+    logging.info(
+        "✅ Transformación completada, archivo actualizado: %s", input_file
+    )
+
+    repo_report = [{"repo_name": "publisso", **original_report}]
+    return ([output_file], repo_report)
 
 
-def extract_thunen_from_openagrar_metadata():
+def extract_thunen_from_openagrar_metadata(
+    input_file: Path
+) -> Tuple[List[Path], List[Dict]]:
     """
     Extract Thünen metadata from OpenAgrar metadata.
     """
     # Configuration
-    input_file = Path("./output/openagrar.json").resolve()
-    output_file = Path("./output/thunen.json").resolve()
+    thunen_out = input_file.parent / "thunen_atlas.json"
+    openagrar_out = input_file.parent / "openagrar.json"
 
     if not input_file.exists():
-        print(f"❌ Archivo de entrada no encontrado: {input_file}")
-        return
+        logging.warning("❌ Archivo de entrada no encontrado: %s", input_file)
+        return ([],[])
     # Regex pattern to match publisher synonyms
     publisher_pattern = re.compile(
         r"Thünen[- ]?Institut|Thuenen Institute|Thünen-Atlas", re.IGNORECASE
@@ -273,7 +279,7 @@ def extract_thunen_from_openagrar_metadata():
     # Load JSON
     with open(input_file, "r", encoding="utf-8") as f:
         data = json.load(f)
-    print(f"Found {len(data)} datasets in {input_file}")
+    logging.info("Found %s datasets in %s", len(data), input_file)
     # Separate datasets
     filtered = []
     remaining = []
@@ -285,15 +291,31 @@ def extract_thunen_from_openagrar_metadata():
             remaining.append(dataset)
 
     # Write filtered datasets to new file
-    with open(output_file, "w", encoding="utf-8") as f:
+    with open(thunen_out, "w", encoding="utf-8") as f:
         json.dump(filtered, f, ensure_ascii=False, indent=2)
 
     # Update original file with remaining datasets
-    with open(input_file, "w", encoding="utf-8") as f:
+    with open(openagrar_out, "w", encoding="utf-8") as f:
         json.dump(remaining, f, ensure_ascii=False, indent=2)
 
-    print(f"Extracted {len(filtered)} datasets to {output_file}")
-    print(f"{len(remaining)} datasets remain in {input_file}")
+    logging.info("Extracted %s datasets to %s", len(filtered), thunen_out)
+    logging.info("%s datasets remain in %s", len(remaining), openagrar_out)
+
+    return (
+        [thunen_out, openagrar_out],
+        [
+            {
+                "repo_name": "thunen_atlas",
+                "valid_entries": len(filtered),
+                "failed_entries": 0
+            },
+            {
+                "repo_name": "openagrar",
+                "valid_entries": len(remaining),
+                "failed_entries": 0
+            }
+        ]
+    )
 
 
 async def main():
@@ -309,11 +331,13 @@ async def main():
             if args.git:
                 git_config = GitRepoConfig(**config["git"])
                 git_repo = GitRepo(git_config)
-                local_path = git_repo.working_dir
+                local_path = Path(git_repo.working_dir)
                 git_repo.pull()
             else:
                 git_repo = None
-                local_path = config.get("git", {}).get("local_path", "/tmp/middleware_git")
+                local_path = Path(
+                    config.get("git", {}).get("local_path", "/tmp/middleware_git")
+                )
                 os.makedirs(local_path, exist_ok=True)
 
             default_http_config = HttpSessionConfig(**config["http_client"])
@@ -322,18 +346,27 @@ async def main():
             for sitemap in config["sitemaps"]:
                 scraper_config = MetadataScraperConfig(**sitemap)
                 path, starttime, repo_report = await scrape_repo_and_write_to_file(
-                    Path(local_path), scraper_config, default_http_config
+                    local_path, scraper_config, default_http_config
                 )
-                full_report += [{"repo_name": sitemap["name"], **repo_report}]
-                if sitemap["name"] == "publisso":
-                    transform_publisso_to_publisso_schemaorg()
-                if sitemap["name"] == "openagrar":
-                    extract_thunen_from_openagrar_metadata()
-                commit = sitemap.get("commit", True)
+                # Ugly logic to perform transformations for specific repos.
+                # This should be replaced by a more generic mechanism in the future.
+                if "publisso" in scraper_config.name:
+                    paths, repo_reports = transform_publisso_to_publisso_schemaorg(
+                        path, repo_report)
+                    commit = True
+                elif "openagrar" in scraper_config.name:
+                    paths, repo_reports = extract_thunen_from_openagrar_metadata(path)
+                    commit = True
+                else:
+                    paths = [path]
+                    repo_reports = [{"repo_name": sitemap["name"], **repo_report}]
+                    commit = sitemap.get("commit", True)
+                full_report += repo_reports
                 if git_repo and commit:
                     # if a git repo is set, commit all files except those that are explicitly
                     # excluded
-                    commit_to_git(scraper_config.url, git_repo, path, starttime)
+                    for path in paths:
+                        commit_to_git(scraper_config.url, git_repo, path, starttime)
 
             if git_repo:
                 git_repo.push()
