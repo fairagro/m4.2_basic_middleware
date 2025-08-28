@@ -317,6 +317,52 @@ def extract_thunen_from_openagrar_metadata(
         ]
     )
 
+async def setup_repo(args, config):
+    """
+    Setup the git repository if configured and requested.
+    """
+
+    if args.git:
+        git_config = GitRepoConfig(**config["git"])
+        git_repo = GitRepo(git_config)
+        local_path = Path(git_repo.working_dir)
+        git_repo.pull()
+    else:
+        git_repo = None
+        local_path = Path(config.get("git", {}).get("local_path", "/tmp/middleware_git"))
+        os.makedirs(local_path, exist_ok=True)
+    return git_repo, local_path
+
+
+async def process_sitemap(sitemap, local_path, default_http_config, git_repo):
+    """
+    Process a single sitemap configuration.
+    """
+
+    scraper_config = MetadataScraperConfig(**sitemap)
+    path, starttime, repo_report = await scrape_repo_and_write_to_file(
+        local_path, scraper_config, default_http_config
+    )
+
+    # Ugly special cases for known repositories that need post-processing.
+    # We should find a more generic solution in the future.
+    if "publisso" in scraper_config.name:
+        paths, repo_reports = transform_publisso_to_publisso_schemaorg(path, repo_report)
+        commit = True
+    elif "openagrar" in scraper_config.name:
+        paths, repo_reports = extract_thunen_from_openagrar_metadata(path)
+        commit = True
+    else:
+        paths = [path]
+        repo_reports = [{"repo_name": sitemap["name"], **repo_report}]
+        commit = sitemap.get("commit", True)
+
+    if git_repo and commit:
+        for path in paths:
+            commit_to_git(scraper_config.url, git_repo, path, starttime)
+
+    return repo_reports
+
 
 async def main():
     """
@@ -327,54 +373,23 @@ async def main():
 
     with trace.get_tracer(__name__).start_as_current_span("main") as otel_span:
         try:
-            # setup git repo if desired
-            if args.git:
-                git_config = GitRepoConfig(**config["git"])
-                git_repo = GitRepo(git_config)
-                local_path = Path(git_repo.working_dir)
-                git_repo.pull()
-            else:
-                git_repo = None
-                local_path = Path(
-                    config.get("git", {}).get("local_path", "/tmp/middleware_git")
-                )
-                os.makedirs(local_path, exist_ok=True)
-
+            git_repo, local_path = await setup_repo(args, config)
             default_http_config = HttpSessionConfig(**config["http_client"])
+
             full_report = []
-            # scrape sites
             for sitemap in config["sitemaps"]:
-                scraper_config = MetadataScraperConfig(**sitemap)
-                path, starttime, repo_report = await scrape_repo_and_write_to_file(
-                    local_path, scraper_config, default_http_config
+                repo_reports = await process_sitemap(
+                    sitemap, local_path, default_http_config, git_repo
                 )
-                # Ugly logic to perform transformations for specific repos.
-                # This should be replaced by a more generic mechanism in the future.
-                if "publisso" in scraper_config.name:
-                    paths, repo_reports = transform_publisso_to_publisso_schemaorg(
-                        path, repo_report)
-                    commit = True
-                elif "openagrar" in scraper_config.name:
-                    paths, repo_reports = extract_thunen_from_openagrar_metadata(path)
-                    commit = True
-                else:
-                    paths = [path]
-                    repo_reports = [{"repo_name": sitemap["name"], **repo_report}]
-                    commit = sitemap.get("commit", True)
-                full_report += repo_reports
-                if git_repo and commit:
-                    # if a git repo is set, commit all files except those that are explicitly
-                    # excluded
-                    for path in paths:
-                        commit_to_git(scraper_config.url, git_repo, path, starttime)
+                full_report.extend(repo_reports)
 
             if git_repo:
                 git_repo.push()
 
             print(json.dumps(full_report, indent=2, ensure_ascii=False, sort_keys=True))
+
         # pylint: disable-next=broad-except
         except Exception as e:
-            otel_span = trace.get_current_span()
             otel_span.record_exception(e)
             msg = "Error when scraping repositories"
             otel_span.add_event(msg)
