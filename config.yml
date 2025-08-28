@@ -47,3 +47,4 @@ git:
 # If you operate an opentelemetry endpoint you can configure it here
 opentelemetry: {}
 #  endpoint:
+#  insecure: true  # set to true if you do not use TLS
