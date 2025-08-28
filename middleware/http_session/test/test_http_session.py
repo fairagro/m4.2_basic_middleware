@@ -5,7 +5,8 @@ A test module for the http_session package.
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from http_session import HttpSession, HttpSessionConfig
+from middleware.http_session import HttpSession, HttpSessionConfig
+
 
 class TestHttpSession(unittest.IsolatedAsyncioTestCase):
     """

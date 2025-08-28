@@ -3,7 +3,9 @@ This module defines the abstract base class 'RegisteringABC'
 """
 
 from abc import ABC
-from typing import Self
+from typing import TypeVar
+
+T = TypeVar("T", bound="RegisteringABC")
 
 
 class RegisteringABC(ABC):
@@ -20,7 +22,7 @@ class RegisteringABC(ABC):
     _implementations = {}
 
     @classmethod
-    def register_implementation(cls: Self, identifier: str) -> None:
+    def register_implementation(cls: type[T], identifier: str) -> None:
         """
         Registers an implementation class with a given string identifier so it
         can be created later on by the `create_instance` method.
@@ -37,7 +39,7 @@ class RegisteringABC(ABC):
         RegisteringABC._implementations[identifier] = cls
 
     @classmethod
-    def create_instance(cls: Self, identifier: str, *args, **kwargs) -> Self:
+    def create_instance(cls: type[T], identifier: str, *args, **kwargs) -> T:
         """
         Create an instance of the implementation class based on the identifier.
         

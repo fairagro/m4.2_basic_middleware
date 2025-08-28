@@ -1,9 +1,10 @@
 """
-This package currently only consists of one public module: metadata_extractor
+Metadata scraper package.
+Register available implementations of SitemapParser and MetadataExtractor.
 """
 
-from .metadata_extractor import *
+from .embedded_jsonld import MetadataExtractorEmbeddedJsonld
+from .jsonld import MetadataExtractorJsonld
 
-# We need to also import these submodules as this is required by the registration process
-from .metadata_extractor_embedded_jsonld import *
-from .metadata_extractor_jsonld import *
+MetadataExtractorEmbeddedJsonld.register_implementation('embedded_jsonld')
+MetadataExtractorJsonld.register_implementation('jsonld')

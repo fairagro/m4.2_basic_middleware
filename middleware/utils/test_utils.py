@@ -9,7 +9,7 @@ from typing import List
 # for asserts. As we're using unittest we would like to use their conventions and disable
 # pylint's check here.
 # pylint: disable-next=invalid-name
-def assertCodesEqual(string1 : str, string2 : str) -> bool:
+def assertCodesEqual(string1 : str, string2 : str) -> None:
     """
     Asserts that two multiline strings are equal, ignoring leading and trailing whitespaces in each
     line.
@@ -38,7 +38,7 @@ def assertCodesEqual(string1 : str, string2 : str) -> bool:
 
 
 # pylint: disable-next=invalid-name
-def assertListofCodesEqual(list1: List[str], list2: List[str]) -> bool:
+def assertListofCodesEqual(list1: List[str], list2: List[str]) -> None:
     """
     Asserts that two lists of code (aka multuline strings, ignoring leading and trailing
     whitespaces in each line) are equal.

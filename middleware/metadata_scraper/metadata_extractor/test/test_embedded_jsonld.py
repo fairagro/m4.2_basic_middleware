@@ -2,9 +2,9 @@
 
 import unittest
 
-from metadata_scraper.metadata_extractor.metadata_extractor_embedded_jsonld import MetadataExtractorEmbeddedJsonld
-from metadata_scraper.metadata_extractor import MetadataParseError
-from utils import assertListofCodesEqual
+from middleware.metadata_scraper.metadata_extractor.embedded_jsonld import MetadataExtractorEmbeddedJsonld
+from middleware.metadata_scraper.metadata_extractor.metadata_extractor import MetadataParseError
+from middleware.utils.test_utils import assertListofCodesEqual
 
 
 class TestMetadataExtractorJsonLd(unittest.TestCase):
@@ -138,7 +138,7 @@ class TestMetadataExtractorJsonLd(unittest.TestCase):
 
     def test_single_raw_metadata(self):
         expected_output = [
-             """
+            """
         {
             "@context": "https://schema.org",
             "@type": "Person",
@@ -165,7 +165,7 @@ class TestMetadataExtractorJsonLd(unittest.TestCase):
             }
         ]
 """
-        ]
+                           ]
         output = self.my_class.raw_metadata(self._multiple_metadata)
         assertListofCodesEqual(output, expected_output)
 
@@ -176,7 +176,7 @@ class TestMetadataExtractorJsonLd(unittest.TestCase):
 
     def test_invalid_html_raw(self):
         expected_output = [
-             """
+            """
         {
             "@context": "https://schema.org",
             "@type": "Person",
@@ -191,6 +191,7 @@ class TestMetadataExtractorJsonLd(unittest.TestCase):
         expected_output = ["### invalid ###"]
         output = self.my_class.raw_metadata(self._invalid_metadata)
         assertListofCodesEqual(output, expected_output)
+
 
 if __name__ == "__main__":
     unittest.main()

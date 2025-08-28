@@ -5,15 +5,15 @@ as returned by the research repository Publisso.
 
 __all__ = []
 __version__ = '0.1.0'
-__author__ = 'brizuela@ipk-gatersleben.de, c.scharfenberg@zalf.de'
+__author__ = 'brizuela@ipk-gatersleben.de, carsten.scharfenberg@zalf.de'
 
 
 from typing import List
 
-from .sitemap_parser import SitemapParser
+from middleware.metadata_scraper.sitemap_parser.sitemap_parser import SitemapParser
 
 
-class SitemapParserPublisso(SitemapParser):
+class SitemapParserThunenAtlas(SitemapParser):
     """
     An implementation class of SitemapParser that parses text sitemaps as returned by Publisso
     """
@@ -39,7 +39,4 @@ class SitemapParserPublisso(SitemapParser):
             List[dict]
                 The metadata in terms of a list of dictionaries.
         """
-        return self.parse_content_as_json()
-
-
-SitemapParserPublisso.register_implementation("publisso")
+        return self.parse_content_as_json()['resources']
