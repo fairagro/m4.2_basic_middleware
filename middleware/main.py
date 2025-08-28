@@ -69,7 +69,8 @@ def setup_opentelemetry(otlp_config: dict) -> None:
             sampler=ALWAYS_ON
         )
         provider.add_span_processor(
-            BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
+            BatchSpanProcessor(
+                OTLPSpanExporter(endpoint=endpoint, insecure=True))
         )
         trace.set_tracer_provider(provider)
     else:
