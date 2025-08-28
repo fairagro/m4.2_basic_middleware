@@ -60,6 +60,7 @@ def setup_opentelemetry(otlp_config: dict) -> None:
     opentelemetry.instrumentation.aiohttp_client.AioHttpClientInstrumentor().instrument()
 
     endpoint = otlp_config.get("endpoint")
+    insecure = otlp_config.get("insecure", False)
     if endpoint:
         # Initialize OpenTelemetry for Tracing to OTLP endpoint
         provider = TracerProvider(
@@ -69,7 +70,8 @@ def setup_opentelemetry(otlp_config: dict) -> None:
             sampler=ALWAYS_ON
         )
         provider.add_span_processor(
-            BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
+            BatchSpanProcessor(
+                OTLPSpanExporter(endpoint=endpoint, insecure=insecure))
         )
         trace.set_tracer_provider(provider)
     else:
