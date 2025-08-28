@@ -23,7 +23,7 @@ class MetadataScraperConfig(NamedTuple):
     url: Annotated[str, "The sitemap URL of the research data repository to scrape"]
     sitemap: Annotated[str, "The identifier of the sitemap parser to use"]
     metadata: Annotated[Optional[str], "The identifier of the metadata extractor to use"] = None
-    commit: Annotated[Optional[bool],
+    commit: Annotated[Optional[bool], "If set to false, the harvested metadata will not be committed to git"] = True
                       "If set to false, the harvedest metadata will not be commited to git"] = True
     # Unfortunately it's not feasible to nest NamedTuple's, so we use a dict here
     # instead of a HttpSessionConfig instance.
