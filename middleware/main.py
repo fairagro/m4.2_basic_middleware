@@ -329,7 +329,7 @@ async def main():
                     transform_publisso_to_publisso_schemaorg()
                 if sitemap["name"] == "openagrar":
                     extract_thunen_from_openagrar_metadata()
-                if git_repo and "_native.json" not in path.name:
+                if git_repo and not path.name.endswith("_native.json"):
                     # if a git repo is set, we commit all files except those ending in _native.json
                     commit_to_git(scraper_config.url, git_repo, path, starttime)
 
