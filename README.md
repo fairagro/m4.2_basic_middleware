@@ -67,12 +67,11 @@ docker run \
 A few notes on this docker run call:
 
 - We run the container without root privileges as user `nonroot`. This user is defined in the Wolfi base image.
-- `config.yml` and `ssh_key.pem` specify the configuration. `config.yml` is mounted as volume, whereas the content of `ssh_key.epm`
+- `config.yml` and `ssh_key.pem` specify the configuration. `config.yml` is mounted as volume, whereas the content of `ssh_key.pem`
   is passed as environment variable `SSH_PRIVATE_KEY`. This is to prevent from permission issues. The ssh key is for git interaction with the
-  remote repository specified in the config file. Of course it needs to be already known to the git repo.
-- The local git working folder would preferably also be mounted into the container so its contents could be cached between container runs.
-  But this seems not to be possible -- at least not without administrational permission on the host machine. The issue is that mounted
-  volumes always belong to root, but the container does not run with root permissions, so it has no write access to the folder.
+  remote repository specified in the config file. Of course the key already needs to be registered with the git repo.
+- As an alternative to access git via `ssh`, it's also possible to use the `https` protocol. In this case you will need to create a
+  personal access token in the github user interface to gain write access to the middleware repo. This access token is passed in terms of the environment variable `ACCESS_TOKEN`.
 
 ## Notes on the python version ##
 

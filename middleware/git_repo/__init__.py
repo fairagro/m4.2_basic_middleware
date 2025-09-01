@@ -33,7 +33,7 @@ class GitRepoConfig(NamedTuple):
     A class for the configuration of a GitRepo.
     """
 
-    repo_url: Annotated[str, "The ssh URL of the git repository"]
+    repo_url: Annotated[str, "The ssh or https URL of the git repository"]
     local_path: Annotated[str, "The local path of the git repository"]
     user_name: Annotated[str, "The name of git user"]
     user_email: Annotated[str, "The email address of git usere"]
@@ -72,12 +72,16 @@ github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okW
 
     def __init__(self, config: GitRepoConfig) -> None:
         self._config = config
-        self._ssh_tempdir = tempfile.TemporaryDirectory() # pylint: disable=R1732
-        self._ssh_key = os.path.abspath(
-            os.path.join(self._ssh_tempdir.name, "ssh_key"))
-        self._ssh_authorized_keys = os.path.abspath(
-            os.path.join(self._ssh_tempdir.name, "authorized_keys"))
+        self._ssh_tempdir = None
         self._repo = self._setup()
+
+    def _cleanup(self) -> None:
+        """
+        delete temp dir, if used
+        """
+        if self._ssh_tempdir:
+            self._ssh_tempdir.cleanup()
+            self._ssh_tempdir = None
 
     # Make this class a context manager to reliably delete the temp dir
     def __enter__(self) -> "GitRepo":
@@ -112,7 +116,14 @@ github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okW
         -------
             None
         """
-        self._ssh_tempdir.cleanup()
+        self._cleanup()
+
+    def __del__(self):
+        """
+        In case this class was not used as context manager, delete the temp
+        dir, when it is garbage collected
+        """
+        self._cleanup()
 
     @property
     def working_dir(self) -> Union[str, os.PathLike[str]]:
@@ -169,27 +180,26 @@ github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okW
         return self._repo.remotes.origin.push()
 
     @staticmethod
-    def _make_ssh_key_path(original_path):
+    def _make_ssh_key_path(path: Path) -> PurePosixPath:
         # This is some ugly workaround for git on Windows. In this case git is based on MSYS, so the
         # ssh command requires POSIX compatible paths, whereas otherwise we deal with Windows paths
         # on Windows. Thus we need to convert the Windows path to the ssh key to MSYS-POSIX.
         # Be aware: this is brittle as it assumes that we always use MSYS ssh on Windows. Maybe
         # there are other ways to setup git.
-        path = Path(original_path)
         parts = path.parts
         if parts[0].endswith(':\\'):
             parts = ['/', parts[0].rstrip(':\\'), *parts[1:]]
         return PurePosixPath(*parts)
 
-    def _setup(self):
-        # find out local repo path
-        local_path = self._config.local_path
+    def _setup_ssh_protocol(self) -> str:
+        # We need a temp dir to store some ssh specific files
+        self._ssh_tempdir = tempfile.TemporaryDirectory() # pylint: disable=consider-using-with
 
         # find the ssh key and use it. We need an absolute path for this so git can find it.
         # no matter which is the current working directory.
-        ssh_key = GitRepo._make_ssh_key_path(self._ssh_key)
-        ssh_authorized_keys = GitRepo._make_ssh_key_path(
-            self._ssh_authorized_keys)
+        temp_dir = Path(self._ssh_tempdir.name)
+        ssh_key = GitRepo._make_ssh_key_path(temp_dir / "ssh_key")
+        ssh_authorized_keys = GitRepo._make_ssh_key_path(temp_dir / "ssh_authorized_keys")
 
         # Get key from env and write to file
         private_key = os.environ.get("SSH_PRIVATE_KEY")
@@ -214,14 +224,42 @@ github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okW
             f'-o StrictHostKeyChecking=yes'
         )
 
+        return self._config.repo_url
+
+    def _setup_https_protocol(self) -> str:
+        access_token = os.environ.get("ACCESS_TOKEN")
+        if access_token:
+            _, rest = self._config.repo_url.split("https://", 1)
+            repo_url = f"https://{access_token}@{rest}"
+        else:
+            repo_url = self._config.repo_url
+
+        return repo_url
+
+
+    def _setup(self):
+        # find out local repo path
+        local_path = self._config.local_path
+
+        # detect git protocol and perform corrersponding setup
+        if self._config.repo_url.startswith('git@'):
+            repo_url = self._setup_ssh_protocol()
+        elif self._config.repo_url.startswith('https://'):
+            repo_url = self._setup_https_protocol()
+        else:
+            raise ValueError(
+                f"The specified git repo URL '{self._config.repo_url}' "
+                "does neither use the https nor the ssh protocol"
+            )
+
         # Initialize existing repo or clone it, if this hasn't been done yet
         try:
             repo = git.Repo(local_path)
-            if repo.remotes.origin.url != self._config.repo_url:
-                raise RuntimeError("Repository " + local_path + "already exists and is not a " +
-                                   " clone of " + self._config.repo_url)
+            if repo.remotes.origin.url != repo_url:
+                raise RuntimeError(f"Repository '{local_path}' already exists and is not a "
+                                   "clone of '{self._config.repo_url}'")
         except (git.NoSuchPathError, git.InvalidGitRepositoryError):
-            repo = git.Repo.clone_from(self._config.repo_url, local_path)
+            repo = git.Repo.clone_from(repo_url, local_path)
 
         # set git config
         config_writer = repo.config_writer()
