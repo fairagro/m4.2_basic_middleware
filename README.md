@@ -71,7 +71,7 @@ A few notes on this docker run call:
   is passed as environment variable `SSH_PRIVATE_KEY`. This is to prevent from permission issues. The ssh key is for git interaction with the
   remote repository specified in the config file. Of course the key already needs to be registered with the git repo.
 - As an alternative to access git via `ssh`, it's also possible to use the `https` protocol. In this case you will need to create a
-  personal access token in the github user interface to gain write access to the middleware repo. This access token is passed in terms of the environment variable `ACCESS_TOKEN`.
+  personal access token in the github user interface to gain write access to the middleware repo. This access token is passed via the environment variable `ACCESS_TOKEN`.
 
 ## Notes on the python version ##
 
