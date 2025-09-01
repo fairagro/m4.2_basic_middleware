@@ -252,7 +252,7 @@ github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okW
             repo = git.Repo(local_path)
             if repo.remotes.origin.url != repo_url:
                 raise RuntimeError(f"Repository '{local_path}' already exists and is not a "
-                                   "clone of '{self._config.repo_url}'")
+                                   f"clone of '{self._config.repo_url}'")
         except (git.NoSuchPathError, git.InvalidGitRepositoryError):
             repo = git.Repo.clone_from(repo_url, local_path)
 
