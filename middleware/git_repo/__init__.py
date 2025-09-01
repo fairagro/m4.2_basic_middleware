@@ -24,6 +24,7 @@ from typing import Annotated, Any, List, NamedTuple, Type, Union
 from pathlib import Path, PurePosixPath
 import os
 import tempfile
+import weakref
 
 import git
 
@@ -73,15 +74,8 @@ github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okW
     def __init__(self, config: GitRepoConfig) -> None:
         self._config = config
         self._ssh_tempdir = None
+        self._finalizer = weakref.finalize(self, self.cleanup)
         self._repo = self._setup()
-
-    def _cleanup(self) -> None:
-        """
-        delete temp dir, if used
-        """
-        if self._ssh_tempdir:
-            self._ssh_tempdir.cleanup()
-            self._ssh_tempdir = None
 
     # Make this class a context manager to reliably delete the temp dir
     def __enter__(self) -> "GitRepo":
@@ -116,14 +110,15 @@ github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okW
         -------
             None
         """
-        self._cleanup()
+        self.cleanup()
 
-    def __del__(self):
+    def cleanup(self) -> None:
         """
-        In case this class was not used as context manager, delete the temp
-        dir, when it is garbage collected
+        delete temp dir, if used
         """
-        self._cleanup()
+        if self._ssh_tempdir:
+            self._ssh_tempdir.cleanup()
+            self._ssh_tempdir = None
 
     @property
     def working_dir(self) -> Union[str, os.PathLike[str]]:
