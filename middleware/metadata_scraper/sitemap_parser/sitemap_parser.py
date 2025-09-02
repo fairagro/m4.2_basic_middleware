@@ -58,7 +58,8 @@ class SitemapParser(RegisteringABC):
             metadata: List[Dict] = [metadata]
         report = {
             'valid_entries': len(metadata),
-            'failed_entries': 0
+            'failed_entries': 0,
+            'skipped': False
         }
         return metadata, report
 

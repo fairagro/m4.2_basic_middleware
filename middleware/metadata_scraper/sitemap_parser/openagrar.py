@@ -11,7 +11,8 @@ __author__ = 'brizuela@ipk-gatersleben.de'
 from collections.abc import Iterator
 import json
 
-from middleware.metadata_scraper.sitemap_parser.sitemap_parser import SitemapParser
+from middleware.metadata_scraper.sitemap_parser.sitemap_parser import (
+    SitemapParseError, SitemapParser)
 
 
 BASE_URL = 'https://www.openagrar.de/receive/'
@@ -37,7 +38,11 @@ class SitemapParserOpenAgrar(SitemapParser):
             str
                 A string with the URL to the next dataset.
         """
-        json_objs = json.loads(self.content)
-        mods_ids = [doc['id'] for doc in json_objs['response']['docs']]
-        for mid in mods_ids:
-            yield f"{BASE_URL}{mid}"
+        try:
+            json_objs = json.loads(self.content)
+            mods_ids = [doc['id'] for doc in json_objs['response']['docs']]
+            for mid in mods_ids:
+                yield f"{BASE_URL}{mid}"
+        except Exception as e:
+            raise SitemapParseError(
+                "Could not parse OpenAgrar sitemap") from e

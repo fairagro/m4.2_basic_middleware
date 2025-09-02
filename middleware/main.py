@@ -91,7 +91,7 @@ async def scrape_repo_and_write_to_file(
     folder_path: Path,
     scraper_config: MetadataScraperConfig,
     default_http_config: HttpSessionConfig,
-) -> Tuple[Path, datetime.datetime, Dict]:
+) -> Tuple[Path | None, datetime.datetime, Dict]:
     """
     Scrapes research repository metadata and writes it to a file.
 
@@ -115,12 +115,15 @@ async def scrape_repo_and_write_to_file(
     # simple synchronous gauge values.
     # count_sites = len(sites)
     # count_metadata = len(metadata)
-    path = Path(os.path.join(folder_path, f"{scraper_config.name}.json"))
-    async with aiofiles.open(path, "w", encoding="utf-8") as f:
-        await f.write(
-            json.dumps(metadata, indent=2, ensure_ascii=False, sort_keys=True)
-        )
-    return path, start_timestamp, report
+    if metadata:
+        path = folder_path / f"{scraper_config.name}.json"
+        async with aiofiles.open(path, "w", encoding="utf-8") as f:
+            await f.write(
+                json.dumps(metadata, indent=2, ensure_ascii=False, sort_keys=True)
+            )
+        return path, start_timestamp, report
+    
+    return None, start_timestamp, report
 
 
 def commit_to_git(
@@ -344,22 +347,25 @@ async def process_sitemap(sitemap, local_path, default_http_config, git_repo):
         local_path, scraper_config, default_http_config
     )
 
-    # Ugly special cases for known repositories that need post-processing.
-    # We should find a more generic solution in the future.
-    if "publisso" in scraper_config.name:
-        paths, repo_reports = transform_publisso_to_publisso_schemaorg(path, repo_report)
-        commit = True
-    elif "openagrar" in scraper_config.name:
-        paths, repo_reports = extract_thunen_from_openagrar_metadata(path)
-        commit = True
-    else:
-        paths = [path]
-        repo_reports = [{"repo_name": sitemap["name"], **repo_report}]
-        commit = sitemap.get("commit", True)
+    if path:
+        # Ugly special cases for known repositories that need post-processing.
+        # We should find a more generic solution in the future.
+        if "publisso" in scraper_config.name:
+            paths, repo_reports = transform_publisso_to_publisso_schemaorg(path, repo_report)
+            commit = True
+        elif "openagrar" in scraper_config.name:
+            paths, repo_reports = extract_thunen_from_openagrar_metadata(path)
+            commit = True
+        else:
+            paths = [path]
+            repo_reports = [{"repo_name": sitemap["name"], **repo_report}]
+            commit = sitemap.get("commit", True)
 
-    if git_repo and commit:
-        for path in paths:
-            commit_to_git(scraper_config.url, git_repo, path, starttime)
+        if git_repo and commit:
+            for path in paths:
+                commit_to_git(scraper_config.url, git_repo, path, starttime)
+    else:
+        repo_reports = [{"repo_name": sitemap["name"], **repo_report}]
 
     return repo_reports
 
