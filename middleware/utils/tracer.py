@@ -26,4 +26,3 @@ def traced(func):
     if inspect.iscoroutinefunction(func):
         return async_wrapper
     return sync_wrapper
-
