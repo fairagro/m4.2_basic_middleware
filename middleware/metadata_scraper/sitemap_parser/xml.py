@@ -11,7 +11,8 @@ __author__ = 'carsten.scharfenberg@zalf.de'
 from collections.abc import Iterator
 from xml.etree import ElementTree
 
-from middleware.metadata_scraper.sitemap_parser.sitemap_parser import SitemapParser
+from middleware.metadata_scraper.sitemap_parser.sitemap_parser import (
+    SitemapParseError, SitemapParser)
 
 
 class SitemapParserXml(SitemapParser):
@@ -35,7 +36,11 @@ class SitemapParserXml(SitemapParser):
             str
                 A string with the URL to the next dataset.
         """
-        xml_root = ElementTree.fromstring(self.content)
-        for url in xml_root.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}loc' ):
-            if url.text is not None:
-                yield url.text
+        try:
+            xml_root = ElementTree.fromstring(self.content)
+            for url in xml_root.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}loc' ):
+                if url.text is not None:
+                    yield url.text
+        except Exception as e:
+            raise SitemapParseError(
+                "Could not parse XML sitemap") from e

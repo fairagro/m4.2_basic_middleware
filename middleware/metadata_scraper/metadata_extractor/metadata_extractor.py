@@ -108,7 +108,7 @@ class MetadataExtractor(RegisteringABC):
                 otel_span.set_attribute(
                     "FAIRagro.middleware.MetadataExtractor.suspicious_data", suspicious_data)
                 otel_span.record_exception(e)
-                msg = "Could not extract meta data, maybe a parsing error?"
+                msg = "Could not parse meta data, omitting metadataset"
                 otel_span.add_event(msg)
                 logging.exception("%s, suspicious data:\n%s", msg, suspicious_data)
                 return None
