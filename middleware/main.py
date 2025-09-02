@@ -340,18 +340,12 @@ async def setup_repo(args, config):
     return git_repo, local_path
 
 
-@traced
 async def process_sitemap(sitemap, local_path, default_http_config, git_repo):
     """
     Process a single sitemap configuration.
     """
 
     scraper_config = MetadataScraperConfig(**sitemap)
-
-    otel_span = trace.get_current_span()
-    otel_span.set_attribute(
-        "FAIRagro.middleware.sitemap_name", scraper_config.name)
-
     path, starttime, repo_report = await scrape_repo_and_write_to_file(
         local_path, scraper_config, default_http_config
     )
