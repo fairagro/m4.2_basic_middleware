@@ -122,7 +122,7 @@ async def scrape_repo_and_write_to_file(
                 json.dumps(metadata, indent=2, ensure_ascii=False, sort_keys=True)
             )
         return path, start_timestamp, report
-    
+
     return None, start_timestamp, report
 
 

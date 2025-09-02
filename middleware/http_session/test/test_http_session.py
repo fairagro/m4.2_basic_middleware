@@ -1,6 +1,6 @@
-# """
-# A test module for the http_session package.
-# """
+"""
+A test module for the http_session package.
+"""
 
 import unittest
 from unittest.mock import AsyncMock, patch, MagicMock
