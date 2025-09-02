@@ -33,9 +33,6 @@ from middleware.http_session import HttpSessionConfig
 from middleware.metadata_scraper import MetadataScraperConfig, scrape_repo
 from middleware.utils.tracer import traced
 
-# add the script directory to the python module path
-#sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-
 # Disable pylint warning that imports are not on top. But we need to adapt the import path before.
 # Is there another solution so packages next top the main script can be found?
 # pylint: disable=wrong-import-position
