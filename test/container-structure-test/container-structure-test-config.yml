@@ -35,6 +35,7 @@ commandTests:
           {
             "failed_entries": 0,
             "repo_name": "test",
-            "valid_entries": 1
+            "valid_entries": 1,
+            "skipped": False
           }
         ]
