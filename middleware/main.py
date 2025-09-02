@@ -31,9 +31,7 @@ import opentelemetry.instrumentation.aiohttp_client
 from middleware.git_repo import GitRepo, GitRepoConfig
 from middleware.http_session import HttpSessionConfig
 from middleware.metadata_scraper import MetadataScraperConfig, scrape_repo
-
-# add the script directory to the python module path
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+from middleware.utils.tracer import traced
 
 # Disable pylint warning that imports are not on top. But we need to adapt the import path before.
 # Is there another solution so packages next top the main script can be found?
@@ -372,6 +370,7 @@ async def process_sitemap(sitemap, local_path, default_http_config, git_repo):
     return repo_reports
 
 
+@traced
 async def main():
     """
     The main async function of the basic middleware
@@ -379,30 +378,30 @@ async def main():
 
     args, config = setup_and_config()
 
-    with trace.get_tracer(__name__).start_as_current_span("main") as otel_span:
-        try:
-            git_repo, local_path = await setup_repo(args, config)
-            default_http_config = HttpSessionConfig(**config["http_client"])
+    try:
+        git_repo, local_path = await setup_repo(args, config)
+        default_http_config = HttpSessionConfig(**config["http_client"])
 
-            full_report = []
-            for sitemap in config["sitemaps"]:
-                repo_reports = await process_sitemap(
-                    sitemap, local_path, default_http_config, git_repo
-                )
-                full_report.extend(repo_reports)
+        full_report = []
+        for sitemap in config["sitemaps"]:
+            repo_reports = await process_sitemap(
+                sitemap, local_path, default_http_config, git_repo
+            )
+            full_report.extend(repo_reports)
 
-            if git_repo:
-                git_repo.push()
+        if git_repo:
+            git_repo.push()
 
-            print(json.dumps(full_report, indent=2, ensure_ascii=False, sort_keys=True))
+        print(json.dumps(full_report, indent=2, ensure_ascii=False, sort_keys=True))
 
-        # pylint: disable-next=broad-except
-        except Exception as e:
-            otel_span.record_exception(e)
-            msg = "Error when scraping repositories"
-            otel_span.add_event(msg)
-            logging.exception(msg)
-            sys.exit(1)
+    # pylint: disable-next=broad-except
+    except Exception as e:
+        otel_span = trace.get_current_span()
+        otel_span.record_exception(e)
+        msg = "Error when scraping repositories"
+        otel_span.add_event(msg)
+        logging.exception(msg)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ from middleware.metadata_scraper.sitemap_parser.sitemap_parser import (
     SitemapParseError, SitemapParser)
 from middleware.metadata_scraper.metadata_extractor.metadata_extractor import (
     MetadataExtractor, MetadataParseError)
+from middleware.utils.tracer import traced
 
 
 class MetadataScraperConfig(NamedTuple):
@@ -49,6 +50,7 @@ SKIP_RDI_REPORT = {
 }
 
 
+@traced
 async def _extract_metadata(
         url: str,
         session: HttpSession,
@@ -70,26 +72,26 @@ async def _extract_metadata(
     Optional[List[Dict]]
         A dictionary containing the extracted metadata.
     """
-    with trace.get_tracer(__name__).start_as_current_span(
-            "MetadataScraper._extract_metadata") as otel_span:
-        otel_span.set_attribute(url_attributes.URL_FULL, url)
-        try:
-            content = await session.get_decoded_url(url)
-            metadata = extractor.get_metadata_or_log_error(content, url)
-            return metadata
-        except (HttpSessionResponseError, HttpSessionDecodeError) as e:
-            # These exceptions are raised by get_decoded_url.
-            # Treat them as errors that only relate to single datasets and
-            # skip this dataset.
-            # (Same approach as get_metadata_or_log_error performs internally
-            # when it encounters parsing errors)
-            otel_span.record_exception(e)
-            msg = "caught recoverable exception, omitting metadataset"
-            otel_span.add_event(msg)
-            logging.exception(msg)
-            return None
+    otel_span = trace.get_current_span()
+    otel_span.set_attribute(url_attributes.URL_FULL, url)
+    try:
+        content = await session.get_decoded_url(url)
+        metadata = extractor.get_metadata_or_log_error(content, url)
+        return metadata
+    except (HttpSessionResponseError, HttpSessionDecodeError) as e:
+        # These exceptions are raised by get_decoded_url.
+        # Treat them as errors that only relate to single datasets and
+        # skip this dataset.
+        # (Same approach as get_metadata_or_log_error performs internally
+        # when it encounters parsing errors)
+        otel_span.record_exception(e)
+        msg = "caught recoverable exception, omitting metadataset"
+        otel_span.add_event(msg)
+        logging.exception(msg)
+        return None
 
 
+@traced
 async def _extract_many_metadata(
         urls: List[str],
         session: HttpSession,
@@ -114,29 +116,28 @@ async def _extract_many_metadata(
             include several several metadata entries or none (especially in case the
             metadata extraction failed).
     """
-    with trace.get_tracer(__name__).start_as_current_span(
-            "MetadataScraper.extract_metadata") as otel_span:
-        extractors = [_extract_metadata(
-            url, session, extractor) for url in urls]
-        datasets = await asyncio.gather(*extractors, return_exceptions=True)
-        for dataset in datasets:
-            if isinstance(dataset, Exception):
-                otel_span.record_exception(dataset)
-                msg = "caught unrecoverable exception, omitting all metadata of RDI"
-                otel_span.add_event(msg)
-                logging.exception(msg)
-                return None, SKIP_RDI_REPORT
+    otel_span = trace.get_current_span()
+    extractors = [_extract_metadata(url, session, extractor) for url in urls]
+    datasets = await asyncio.gather(*extractors, return_exceptions=True)
+    for dataset in datasets:
+        if isinstance(dataset, Exception):
+            otel_span.record_exception(dataset)
+            msg = "caught unrecoverable exception, omitting all metadata of RDI"
+            otel_span.add_event(msg)
+            logging.exception(msg)
+            return None, SKIP_RDI_REPORT
 
-        filtered_datasets = (m for m in datasets if isinstance(m, list))
-        result = list(itertools.chain.from_iterable(filtered_datasets))
-        report = {
-            'valid_entries': len(result),
-            'failed_entries': len(datasets)-len(result),
-            'skipped': False
-        }
-        return result, report
+    filtered_datasets = (m for m in datasets if isinstance(m, list))
+    result = list(itertools.chain.from_iterable(filtered_datasets))
+    report = {
+        'valid_entries': len(result),
+        'failed_entries': len(datasets)-len(result),
+        'skipped': False
+    }
+    return result, report
 
 
+@traced
 async def scrape_repo(
         config: MetadataScraperConfig,
         default_session_config: HttpSessionConfig) -> Tuple[Optional[List[Dict]], Dict]:
@@ -156,34 +157,33 @@ async def scrape_repo(
             The extracted metadata in terms of python dictonaries.
     """
 
-    with trace.get_tracer(__name__).start_as_current_span(
-            "MetadataScraper.scrape_repo") as otel_span:
-        otel_span.set_attribute(
-            "FAIRagro.middleware.MetadataScraper.repository_name", config.name)
-        otel_span.set_attribute(
-            "FAIRagro.middleware.MetadataScraper.repository_sitemap_url", config.url)
-        try:
-            if config.http_client:
-                http_session_config = HttpSessionConfig(**config.http_client)
-            else:
-                http_session_config = default_session_config
-            async with HttpSession(http_session_config) as session:
-                sitemap_content = await session.get_decoded_url(config.url)
-                parser = SitemapParser.create_instance(
-                    config.sitemap, sitemap_content)
-                if parser.has_metadata:
-                    return parser.metadata
+    otel_span = trace.get_current_span()
+    otel_span.set_attribute(
+        "FAIRagro.middleware.MetadataScraper.repository_name", config.name)
+    otel_span.set_attribute(
+        "FAIRagro.middleware.MetadataScraper.repository_sitemap_url", config.url)
+    try:
+        if config.http_client:
+            http_session_config = HttpSessionConfig(**config.http_client)
+        else:
+            http_session_config = default_session_config
+        async with HttpSession(http_session_config) as session:
+            sitemap_content = await session.get_decoded_url(config.url)
+            parser = SitemapParser.create_instance(
+                config.sitemap, sitemap_content)
+            if parser.has_metadata:
+                return parser.metadata
 
-                urls = list(parser.datasets)
-                if config.metadata:
-                    extractor = MetadataExtractor.create_instance(config.metadata)
-                    metadata, report = await _extract_many_metadata(urls, session, extractor)
-                    return metadata, report
+            urls = list(parser.datasets)
+            if config.metadata:
+                extractor = MetadataExtractor.create_instance(config.metadata)
+                metadata, report = await _extract_many_metadata(urls, session, extractor)
+                return metadata, report
 
-        except (HttpSessionFetchError, SitemapParseError, MetadataParseError) as e:
-            otel_span.record_exception(e)
-            msg = "Could not download or parse RDI sitemap, skipping RDI"
-            otel_span.add_event(msg)
-            logging.exception(msg)
+    except (HttpSessionFetchError, SitemapParseError, MetadataParseError) as e:
+        otel_span.record_exception(e)
+        msg = "Could not download or parse RDI sitemap, skipping RDI"
+        otel_span.add_event(msg)
+        logging.exception(msg)
 
-        return None, SKIP_RDI_REPORT
+    return None, SKIP_RDI_REPORT

@@ -8,6 +8,7 @@ import logging
 from opentelemetry import trace
 
 from middleware.utils.registering_abc import RegisteringABC
+from middleware.utils.tracer import traced
 
 
 class MetadataParseError(RuntimeError):
@@ -81,6 +82,7 @@ class MetadataExtractor(RegisteringABC):
                 A list of strings containing the unprased metadata.
         """
 
+    @traced
     def get_metadata_or_log_error(self, content: str, url: str) -> Optional[List[Dict]]:
         """
         Tries to extract metadata from the given content that was downloaded from the given URL.
@@ -98,17 +100,16 @@ class MetadataExtractor(RegisteringABC):
             Optional[List[Dict]]
                 The extracted metadata if successful, None otherwise.
         """
-        with trace.get_tracer(__name__).start_as_current_span(
-            "MetadataExtractor.get_metadata_or_log_error") as otel_span:
-            try:
-                metadata = self.metadata(content, url)
-                return metadata
-            except MetadataParseError as e:
-                suspicious_data = ''.join(self.raw_metadata(content))
-                otel_span.set_attribute(
-                    "FAIRagro.middleware.MetadataExtractor.suspicious_data", suspicious_data)
-                otel_span.record_exception(e)
-                msg = "Could not parse meta data, omitting metadataset"
-                otel_span.add_event(msg)
-                logging.exception("%s, suspicious data:\n%s", msg, suspicious_data)
-                return None
+        try:
+            metadata = self.metadata(content, url)
+            return metadata
+        except MetadataParseError as e:
+            suspicious_data = ''.join(self.raw_metadata(content))
+            otel_span = trace.get_current_span()
+            otel_span.set_attribute(
+                "FAIRagro.middleware.MetadataExtractor.suspicious_data", suspicious_data)
+            otel_span.record_exception(e)
+            msg = "Could not parse meta data, omitting metadataset"
+            otel_span.add_event(msg)
+            logging.exception("%s, suspicious data:\n%s", msg, suspicious_data)
+            return None
