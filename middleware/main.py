@@ -310,12 +310,14 @@ def extract_thunen_from_openagrar_metadata(
             {
                 "repo_name": "thunen_atlas",
                 "valid_entries": len(filtered),
-                "failed_entries": 0
+                "failed_entries": 0,
+                "skipped": False
             },
             {
                 "repo_name": "openagrar",
                 "valid_entries": len(remaining),
-                "failed_entries": 0
+                "failed_entries": 0,
+                "skipped": False
             }
         ]
     )
