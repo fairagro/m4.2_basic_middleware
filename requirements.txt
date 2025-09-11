@@ -28,7 +28,7 @@ multidict==6.6.4
 opentelemetry-api==1.36.0
 opentelemetry-exporter-otlp-proto-common==1.36.0
 opentelemetry-exporter-otlp-proto-grpc==1.36.0
-opentelemetry-instrumentation==0.57b0
+opentelemetry-instrumentation==0.58b0
 opentelemetry-instrumentation-aiohttp-client==0.57b0
 opentelemetry-instrumentation-requests==0.57b0
 opentelemetry-instrumentation-urllib==0.57b0
