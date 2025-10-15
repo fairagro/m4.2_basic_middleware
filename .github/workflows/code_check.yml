@@ -2,7 +2,6 @@ name: Python Code Check
 
 on:
   push:
-  # For manual triggering
   workflow_dispatch:
 
 permissions:
@@ -24,18 +23,15 @@ jobs:
         with:
           python-version: "${{ env.PYTHON_VERSION }}"
 
-      - name: Install dependencies
+      - name: Install uv package manager
         run: |
-          python -m pip install --upgrade pip setuptools wheel
-          pip install -r requirements.txt
-          pip install pylint
+          python -m pip install --upgrade uv setuptools
+          uv synv --dev
 
       - name: Lint with pylint
-        env:
-          PYTHONPATH: ${{ github.workspace }}
         run: |
-          pylint middleware
+          pylint middleware_api tests
 
-      - name: Test with python unittest
+      - name: Test with pytest
         run: |
-          python -m unittest discover -s middleware -p "test_*.py"
+          pytest middleware --maxfail=1 --disable-warnings -q
