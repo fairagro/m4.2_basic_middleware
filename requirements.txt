@@ -34,7 +34,7 @@ opentelemetry-instrumentation-requests==0.57b0
 opentelemetry-instrumentation-urllib==0.57b0
 opentelemetry-proto==1.36.0
 opentelemetry-sdk==1.36.0
-opentelemetry-semantic-conventions==0.57b0
+opentelemetry-semantic-conventions==0.59b0
 opentelemetry-util-http==0.57b0
 packaging==25.0
 propcache==0.3.2
