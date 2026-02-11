@@ -6,7 +6,10 @@
     "@id":
         (if has("doi")
             then "https://doi.org/" + .doi
-            else "https://repository.publisso.de/resource/" + .["@id"]
+        elif has("@id")
+            then "https://repository.publisso.de/resource/" + .["@id"]
+        else
+            error("Missing required field: either doi or @id must be present")
         end),
     "name": (if has("title") then (.title[]) else null end),
     "alternativeHeadline": (if has("alternative") then .alternative[0] else null end),
@@ -20,12 +23,14 @@
               "url": ("https://doi.org/" +  .doi)
             }
          else empty end),
-        {
-          "@type": "PropertyValue",
-          "propertyID": "frl-internal",
-          "value": .["@id"],
-          "url": ("https://repository.publisso.de/resource/" +  .["@id"])
-        }
+        (."@id" | if . then
+            {
+              "@type": "PropertyValue",
+              "propertyID": "frl-internal",
+              "value": .,
+              "url": ("https://repository.publisso.de/resource/" +  .)
+            }
+        else empty end)
     ]),
 
     "creator":
@@ -79,7 +84,7 @@
         ],
     "distribution":
         [
-            (if has("hasPart") then (.hasPart[] | {"@type":"DataDownload", "@id": ("https://repository.publisso.de/resource/" + ."@id"), "name": .prefLabel}) else null end)
+            (if has("hasPart") then (.hasPart[] | {"@type":"DataDownload", "@id": (."@id" | if . then "https://repository.publisso.de/resource/" + . else null end), "name": .prefLabel}) else null end)
         ],
     "inLanguage":
         [
