@@ -6,9 +6,7 @@
     "@id":
         (if has("doi")
             then "https://doi.org/" + .doi
-        elif has("@id")
-            then "https://repository.publisso.de/resource/" + .["@id"]
-        else null
+            else "https://repository.publisso.de/resource/" + .["@id"]
         end),
     "name": (if has("title") then (.title[]) else null end),
     "alternativeHeadline": (if has("alternative") then .alternative[0] else null end),
@@ -22,14 +20,12 @@
               "url": ("https://doi.org/" +  .doi)
             }
          else empty end),
-        (if has("@id") then
-            {
-              "@type": "PropertyValue",
-              "propertyID": "frl-internal",
-              "value": .["@id"],
-              "url": ("https://repository.publisso.de/resource/" +  .["@id"])
-            }
-        else empty end)
+        {
+          "@type": "PropertyValue",
+          "propertyID": "frl-internal",
+          "value": .["@id"],
+          "url": ("https://repository.publisso.de/resource/" +  .["@id"])
+        }
     ]),
 
     "creator":
