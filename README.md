@@ -181,4 +181,8 @@ This repository currently has two distinct sets of automated tests:
   ```
 
   Container structure tests are executed automatically the github action `Docker Build`.
+
+## License ##
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
   
