@@ -22,7 +22,7 @@ importlib_metadata==8.7.1
 isodate==0.7.2
 jstyleson==0.0.2
 lxml==6.0.2
-lxml_html_clean==0.4.3
+lxml_html_clean==0.4.4
 mf2py==2.0.1
 multidict==6.7.1
 opentelemetry-api==1.39.1
