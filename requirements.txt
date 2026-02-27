@@ -38,7 +38,7 @@ opentelemetry-semantic-conventions==0.60b1
 opentelemetry-util-http==0.60b1
 packaging==26.0
 propcache==0.4.1
-protobuf==6.33.5
+protobuf==7.34.0
 pyparsing==3.3.2
 pyRdfa3==3.6.5
 pytz==2025.2
