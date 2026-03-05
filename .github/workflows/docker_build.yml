@@ -75,7 +75,7 @@ jobs:
             type=raw,value=${{ needs.version.outputs.Major }}
 
       - name: Build and export to Docker
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           load: true
           tags: middleware:test
@@ -97,7 +97,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and Push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.metadata.outputs.tags }}
