@@ -17,7 +17,7 @@ googleapis-common-protos==1.72.0
 grpcio==1.78.0
 html5lib==1.1
 html_text==0.7.1
-idna==3.11
+idna==3.15
 importlib_metadata==8.7.1
 isodate==0.7.2
 jstyleson==0.0.2
