@@ -16,6 +16,8 @@ import chardet
 
 from middleware.utils.tracer import traced
 
+USER_AGENT = "FAIRagro-Harvester/1.0 (harvestmaster@fairagro.net)"
+
 
 class HttpSessionConfig(NamedTuple):
     """
@@ -78,7 +80,12 @@ class HttpSession(ClientSession):
                 total=None,
                 sock_read=config.receive_timeout,
                 sock_connect=config.connect_timeout)
-            super().__init__(connector=connector, timeout=timeout, raise_for_status=True)
+            super().__init__(
+                connector=connector,
+                timeout=timeout,
+                raise_for_status=True,
+                headers={"User-Agent": USER_AGENT},
+            )
         except Exception as e:
             raise HttpSessionArgumentError(
                 "Could not create HttpSession object") from e
