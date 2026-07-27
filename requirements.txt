@@ -14,7 +14,8 @@ frozenlist==1.8.0
 gitdb==4.0.12
 GitPython==3.1.57
 googleapis-common-protos==1.75.0
-grpcio==1.83.0
+# Cap below 1.80: grpcio 1.80–1.83 regresses subprocess.Popen (grpc/grpc#42062)
+grpcio==1.78.0
 html5lib==1.1
 html_text==0.7.1
 idna==3.18
