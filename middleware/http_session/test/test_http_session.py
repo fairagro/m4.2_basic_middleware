@@ -22,6 +22,9 @@ class TestHttpSession(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.session = HttpSession(config=MagicMock())
 
+    async def asyncTearDown(self):
+        await self.session.close()
+
     @patch("middleware.http_session.trace.get_tracer")
     @patch("middleware.http_session.chardet.detect", return_value={"encoding": "utf-8"})
     @patch("middleware.http_session.HttpSession.get")
