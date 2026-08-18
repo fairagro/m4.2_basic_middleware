@@ -4,6 +4,8 @@ HttpSessionConfig.
 """
 
 import asyncio
+import logging
+import random
 from typing import Annotated, NamedTuple, Optional, Type
 from types import TracebackType
 from urllib.parse import urlparse
@@ -22,10 +24,10 @@ class HttpSessionConfig(NamedTuple):
     A simple configuration class for the HttpSession class.
     """
 
-    connection_limit: Annotated[int,
-                                "maximum number of conconcurrent http connections"]
-    receive_timeout: Annotated[int,
-                               "timeout in seconds until an http connection is established"]
+    connection_limit: Annotated[int, "maximum number of conconcurrent http connections"]
+    receive_timeout: Annotated[
+        int, "timeout in seconds until an http connection is established"
+    ]
     connect_timeout: Annotated[int, "timeout in seconds for an http download"]
 
 
@@ -47,6 +49,10 @@ class HttpSessionResponseError(HttpSessionFetchError):
 
 class HttpSessionDecodeError(HttpSessionFetchError):
     """Response could not be decoded with detected encoding."""
+
+
+_RETRY_ATTEMPTS = 3
+_RETRY_BACKOFF_SECONDS = [1.0, 2.0, 4.0]
 
 
 class HttpSession(ClientSession):
@@ -77,11 +83,13 @@ class HttpSession(ClientSession):
                 # disable total timeout which might trigger if we are out of connections
                 total=None,
                 sock_read=config.receive_timeout,
-                sock_connect=config.connect_timeout)
-            super().__init__(connector=connector, timeout=timeout, raise_for_status=True)
+                sock_connect=config.connect_timeout,
+            )
+            super().__init__(
+                connector=connector, timeout=timeout, raise_for_status=False
+            )
         except Exception as e:
-            raise HttpSessionArgumentError(
-                "Could not create HttpSession object") from e
+            raise HttpSessionArgumentError("Could not create HttpSession object") from e
 
     async def __aenter__(self) -> "HttpSession":
         """
@@ -99,7 +107,7 @@ class HttpSession(ClientSession):
         self,
         exc_type: Optional[Type[BaseException]],
         exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType]
+        exc_tb: Optional[TracebackType],
     ) -> None:
         """
         Exit the context manager, not handling any exceptions.
@@ -140,29 +148,56 @@ class HttpSession(ClientSession):
 
         parsed_url = urlparse(url)  # does not raise
         if parsed_url.scheme in ["http", "https"]:
-            try:
-                async with self.get(url) as response:
-                    # treat 5xx like a technical network error
-                    if 500 <= response.status < 600:
-                        otel_span.add_event(
-                            "server reponse 5xx, raising HttpSessionTechnicalError")
-                        raise HttpSessionTechnicalError(
-                            f"Server error {response.status} for {url}"
-                        )
-                    # treat 4xx as response error
-                    if 400 <= response.status < 500:
-                        otel_span.add_event(
-                            "server reponse 4xx, raising HttpSessionResponseError")
-                        raise HttpSessionResponseError(
-                            f"Server error {response.status} for {url}"
-                        )
-                    encoded_content = await response.read()
-            except (ClientError, asyncio.TimeoutError) as e:
-                otel_span.record_exception(e)
+            error = None
+            for attempt in range(_RETRY_ATTEMPTS):
+                try:
+                    async with self.get(url) as response:
+                        # treat 5xx like a technical network error (retryable)
+                        if 500 <= response.status < 600:
+                            otel_span.add_event(
+                                "server reponse 5xx, raising HttpSessionTechnicalError"
+                            )
+                            raise HttpSessionTechnicalError(
+                                f"Server error {response.status} for {url}"
+                            )
+                        # treat 4xx as response error (permanent, not retried)
+                        if 400 <= response.status < 500:
+                            otel_span.add_event(
+                                "server reponse 4xx, raising HttpSessionResponseError"
+                            )
+                            raise HttpSessionResponseError(
+                                f"Server error {response.status} for {url}"
+                            )
+                        encoded_content = await response.read()
+                        break
+                except HttpSessionResponseError:
+                    raise
+                except (ClientError, asyncio.TimeoutError) as e:
+                    otel_span.record_exception(e)
+                    error = HttpSessionTechnicalError(f"Cannot fetch {url}: {e}")
+                    error.__cause__ = e
+                except HttpSessionTechnicalError as e:
+                    error = e
+                # Retry transient errors with exponential backoff + jitter
+                if attempt < _RETRY_ATTEMPTS - 1:
+                    delay = _RETRY_BACKOFF_SECONDS[
+                        min(attempt, len(_RETRY_BACKOFF_SECONDS) - 1)
+                    ]
+                    delay += random.random()  # jitter
+                    logging.warning(
+                        "Retry %d/%d for %s in %.1fs",
+                        attempt + 1,
+                        _RETRY_ATTEMPTS,
+                        url,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+            else:
+                # All retries exhausted — raise the last error
                 otel_span.add_event(
-                    "caught network-related exception, raising HttpSessionTechnicalError")
-                raise HttpSessionTechnicalError(
-                    f"Cannot fetch {url}: {e}") from e
+                    "caught network-related exception, raising HttpSessionTechnicalError"
+                )
+                raise error
         elif parsed_url.scheme == "file":
             try:
                 # We need to deal with the following situation:
@@ -171,33 +206,37 @@ class HttpSession(ClientSession):
                 # urlparse('file://./test') => netloc = '.', path = '/test', joined = '\test'
                 # In the last case the path is relative, so the result is wrong. Thus this code:
                 base_path = PurePath(parsed_url.netloc)
-                if base_path == PurePath('.'):
+                if base_path == PurePath("."):
                     path = base_path / parsed_url.path.lstrip("/").lstrip("\\")
                 else:
                     path = base_path / parsed_url.path
-                async with aiofiles.open(path, 'rb') as f:
+                async with aiofiles.open(path, "rb") as f:
                     encoded_content = await f.read()
             except Exception as e:
                 otel_span.record_exception(e)
                 otel_span.add_event(
                     "caught exception when trying to read file, "
-                    "raising HttpSessionResponseError")
-                raise HttpSessionResponseError(
-                    f"Cannot read file {url}: {e}") from e
+                    "raising HttpSessionResponseError"
+                )
+                raise HttpSessionResponseError(f"Cannot read file {url}: {e}") from e
         else:
             otel_span.add_event(
-                "found unsupported URL protocol, raising HttpSessionArgumentError")
+                "found unsupported URL protocol, raising HttpSessionArgumentError"
+            )
             raise HttpSessionArgumentError(
-                f"Unsupported URL scheme: {parsed_url.scheme} in URL {url}")
+                f"Unsupported URL scheme: {parsed_url.scheme} in URL {url}"
+            )
 
         try:
-            encoding = str(chardet.detect(encoded_content)['encoding']) or 'utf-8'
+            encoding = str(chardet.detect(encoded_content)["encoding"]) or "utf-8"
             content = encoded_content.decode(encoding)
         except Exception as e:
             otel_span.record_exception(e)
             otel_span.add_event(
-                "caught exception during decoding, raising HttpSessionDecodeError")
+                "caught exception during decoding, raising HttpSessionDecodeError"
+            )
             raise HttpSessionDecodeError(
-                f"cannot decode URL content from {url}: {e}") from e
+                f"cannot decode URL content from {url}: {e}"
+            ) from e
 
         return content

@@ -10,7 +10,8 @@ from middleware.http_session import (
     HttpSessionTechnicalError,
     HttpSessionResponseError,
     HttpSessionDecodeError,
-    HttpSessionArgumentError
+    HttpSessionArgumentError,
+    _RETRY_ATTEMPTS,
 )
 
 
@@ -34,27 +35,31 @@ class TestHttpSession(unittest.IsolatedAsyncioTestCase):
         mock_response.read = AsyncMock(return_value=b"hello world")
         mock_get.return_value = MagicMock(
             __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock(return_value=None)
+            __aexit__=AsyncMock(return_value=None),
         )
 
         content = await self.session.get_decoded_url("http://example.com")
         self.assertEqual(content, "hello world")
 
     @patch("middleware.http_session.trace.get_tracer")
+    @patch("middleware.http_session.asyncio.sleep", new_callable=AsyncMock)
     @patch("middleware.http_session.HttpSession.get")
-    async def test_http_5xx_raises_technical_error(self, mock_get, _mock_tracer):
+    async def test_http_5xx_raises_technical_error(
+        self, mock_get, _mock_sleep, _mock_tracer
+    ):
         """
-        test http 5xx raises technical error
+        test http 5xx raises technical error after retries exhausted
         """
         mock_response = AsyncMock()
         mock_response.status = 502
         mock_get.return_value = MagicMock(
             __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock(return_value=None)
+            __aexit__=AsyncMock(return_value=None),
         )
 
         with self.assertRaises(HttpSessionTechnicalError):
             await self.session.get_decoded_url("http://example.com")
+        self.assertEqual(mock_get.call_count, _RETRY_ATTEMPTS)
 
     @patch("middleware.http_session.trace.get_tracer")
     @patch("middleware.http_session.HttpSession.get")
@@ -66,25 +71,100 @@ class TestHttpSession(unittest.IsolatedAsyncioTestCase):
         mock_response.status = 404
         mock_get.return_value = MagicMock(
             __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock(return_value=None)
+            __aexit__=AsyncMock(return_value=None),
         )
 
         with self.assertRaises(HttpSessionResponseError):
             await self.session.get_decoded_url("http://example.com")
 
     @patch("middleware.http_session.trace.get_tracer")
+    @patch("middleware.http_session.asyncio.sleep", new_callable=AsyncMock)
     @patch("middleware.http_session.HttpSession.get")
-    async def test_http_network_exception(self, mock_get, _mock_tracer):
+    async def test_network_exception_raises_technical_error(
+        self, mock_get, _mock_sleep, _mock_tracer
+    ):
         """
-        test network exception
+        test network exception raises technical error after retries exhausted
         """
         mock_get.return_value = MagicMock(
             __aenter__=AsyncMock(side_effect=ClientError("boom")),
-            __aexit__=AsyncMock(return_value=None)
+            __aexit__=AsyncMock(return_value=None),
         )
 
         with self.assertRaises(HttpSessionTechnicalError):
             await self.session.get_decoded_url("http://example.com")
+        self.assertEqual(mock_get.call_count, _RETRY_ATTEMPTS)
+
+    @patch("middleware.http_session.trace.get_tracer")
+    @patch("middleware.http_session.chardet.detect", return_value={"encoding": "utf-8"})
+    @patch("middleware.http_session.asyncio.sleep", new_callable=AsyncMock)
+    @patch("middleware.http_session.HttpSession.get")
+    async def test_http_5xx_retries_then_succeeds(
+        self, mock_get, _mock_sleep, _mock_chardet, _mock_tracer
+    ):
+        """
+        test 503 on first attempt, 200 on second — retry returns content
+        """
+        fail_response = AsyncMock()
+        fail_response.status = 503
+        ok_response = AsyncMock()
+        ok_response.status = 200
+        ok_response.read = AsyncMock(return_value=b"hello")
+
+        mock_get.side_effect = [
+            MagicMock(
+                __aenter__=AsyncMock(return_value=fail_response),
+                __aexit__=AsyncMock(return_value=None),
+            ),
+            MagicMock(
+                __aenter__=AsyncMock(return_value=ok_response),
+                __aexit__=AsyncMock(return_value=None),
+            ),
+        ]
+
+        content = await self.session.get_decoded_url("http://example.com")
+        self.assertEqual(content, "hello")
+        self.assertEqual(mock_get.call_count, 2)
+
+    @patch("middleware.http_session.trace.get_tracer")
+    @patch("middleware.http_session.asyncio.sleep", new_callable=AsyncMock)
+    @patch("middleware.http_session.HttpSession.get")
+    async def test_http_5xx_exhausts_retries_raises(
+        self, mock_get, _mock_sleep, _mock_tracer
+    ):
+        """
+        test 503 on every attempt raises after exhausting retries
+        """
+        mock_response = AsyncMock()
+        mock_response.status = 503
+        mock_get.return_value = MagicMock(
+            __aenter__=AsyncMock(return_value=mock_response),
+            __aexit__=AsyncMock(return_value=None),
+        )
+
+        with self.assertRaises(HttpSessionTechnicalError):
+            await self.session.get_decoded_url("http://example.com")
+        self.assertEqual(mock_get.call_count, _RETRY_ATTEMPTS)
+
+    @patch("middleware.http_session.trace.get_tracer")
+    @patch("middleware.http_session.asyncio.sleep", new_callable=AsyncMock)
+    @patch("middleware.http_session.HttpSession.get")
+    async def test_http_4xx_no_retry_raises_response_error(
+        self, mock_get, _mock_sleep, _mock_tracer
+    ):
+        """
+        test 404 raises response error immediately, no retry
+        """
+        mock_response = AsyncMock()
+        mock_response.status = 404
+        mock_get.return_value = MagicMock(
+            __aenter__=AsyncMock(return_value=mock_response),
+            __aexit__=AsyncMock(return_value=None),
+        )
+
+        with self.assertRaises(HttpSessionResponseError):
+            await self.session.get_decoded_url("http://example.com")
+        self.assertEqual(mock_get.call_count, 1)
 
     @patch("middleware.http_session.trace.get_tracer")
     @patch("middleware.http_session.aiofiles.open")
@@ -111,7 +191,9 @@ class TestHttpSession(unittest.IsolatedAsyncioTestCase):
     @patch("middleware.http_session.trace.get_tracer")
     @patch("middleware.http_session.chardet.detect", return_value={"encoding": "utf-8"})
     @patch("middleware.http_session.HttpSession.get")
-    async def test_decode_error_raises_decode_error(self, mock_get, _mock_chardet, _mock_tracer):
+    async def test_decode_error_raises_decode_error(
+        self, mock_get, _mock_chardet, _mock_tracer
+    ):
         """
         test decode error raises decode error
         """
@@ -120,7 +202,7 @@ class TestHttpSession(unittest.IsolatedAsyncioTestCase):
         mock_response.read = AsyncMock(return_value=b"\xff\xff")
         mock_get.return_value = MagicMock(
             __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock(return_value=None)
+            __aexit__=AsyncMock(return_value=None),
         )
 
         with self.assertRaises(HttpSessionDecodeError):
