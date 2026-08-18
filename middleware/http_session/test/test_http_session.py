@@ -7,10 +7,12 @@ from unittest.mock import AsyncMock, patch, MagicMock
 from aiohttp import ClientError
 from middleware.http_session import (
     HttpSession,
+    HttpSessionConfig,
     HttpSessionTechnicalError,
     HttpSessionResponseError,
     HttpSessionDecodeError,
     HttpSessionArgumentError,
+    DEFAULT_USER_AGENT,
     _RETRY_ATTEMPTS,
 )
 
@@ -207,6 +209,25 @@ class TestHttpSession(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(HttpSessionDecodeError):
             await self.session.get_decoded_url("http://example.com")
+
+    async def test_default_user_agent(self):
+        """HttpSession sets default FAIRagro User-Agent header."""
+        config = HttpSessionConfig(
+            connection_limit=5, receive_timeout=30, connect_timeout=30
+        )
+        async with HttpSession(config) as session:
+            self.assertEqual(session.headers["User-Agent"], DEFAULT_USER_AGENT)
+
+    async def test_custom_user_agent(self):
+        """HttpSession respects custom User-Agent from config."""
+        config = HttpSessionConfig(
+            connection_limit=5,
+            receive_timeout=30,
+            connect_timeout=30,
+            user_agent="MyBot/2.0",
+        )
+        async with HttpSession(config) as session:
+            self.assertEqual(session.headers["User-Agent"], "MyBot/2.0")
 
 
 # import unittest
