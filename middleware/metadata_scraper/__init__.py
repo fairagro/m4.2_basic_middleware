@@ -15,7 +15,8 @@ from middleware.http_session import (
     HttpSessionConfig,
     HttpSessionDecodeError,
     HttpSessionFetchError,
-    HttpSessionResponseError
+    HttpSessionResponseError,
+    HttpSessionTechnicalError
 )
 from middleware.metadata_scraper.sitemap_parser.sitemap_parser import (
     SitemapParseError, SitemapParser)
@@ -78,7 +79,7 @@ async def _extract_metadata(
         content = await session.get_decoded_url(url)
         metadata = extractor.get_metadata_or_log_error(content, url)
         return metadata
-    except (HttpSessionResponseError, HttpSessionDecodeError) as e:
+    except (HttpSessionResponseError, HttpSessionDecodeError, HttpSessionTechnicalError) as e:
         # These exceptions are raised by get_decoded_url.
         # Treat them as errors that only relate to single datasets and
         # skip this dataset.
