@@ -5,7 +5,10 @@ This module defines the class 'MetadataScraper' and th corresponding class
 
 import asyncio
 import itertools
+import json
 import logging
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated, Dict, List, NamedTuple, Optional, Tuple
 from opentelemetry import trace
 from opentelemetry.semconv.attributes import url_attributes
@@ -15,7 +18,8 @@ from middleware.http_session import (
     HttpSessionConfig,
     HttpSessionDecodeError,
     HttpSessionFetchError,
-    HttpSessionResponseError
+    HttpSessionResponseError,
+    HttpSessionTechnicalError
 )
 from middleware.metadata_scraper.sitemap_parser.sitemap_parser import (
     SitemapParseError, SitemapParser)
@@ -49,12 +53,32 @@ SKIP_RDI_REPORT = {
     'skipped': True
 }
 
+FAILED_ENTRIES_LOG = Path("output/failed_entries.jsonl")
+
+
+def _log_failed_entry(url: str, error: Exception, repo_name: str) -> None:
+    """Append failed entry to JSONL log file for later investigation."""
+    FAILED_ENTRIES_LOG.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "repo": repo_name,
+        "url": url,
+        "error": str(error),
+        "error_type": type(error).__name__,
+    }
+    try:
+        with open(FAILED_ENTRIES_LOG, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except OSError as e:
+        logging.warning("Could not write to failed entries log: %s", e)
+
 
 @traced
 async def _extract_metadata(
         url: str,
         session: HttpSession,
-        extractor: MetadataExtractor) -> Optional[List[Dict]]:
+        extractor: MetadataExtractor,
+        repo_name: str) -> Optional[List[Dict]]:
     """
     Extracts metadata from the specified URL.
 
@@ -66,6 +90,8 @@ async def _extract_metadata(
         The http session to use to download the URL content.
     extractor : MetadataExtractor
         The metadata extractor to use.
+    repo_name : str
+        The name of the repository (for logging failed entries).
 
     Returns
     -------
@@ -77,8 +103,14 @@ async def _extract_metadata(
     try:
         content = await session.get_decoded_url(url)
         metadata = extractor.get_metadata_or_log_error(content, url)
+        if metadata is None:
+            _log_failed_entry(
+                url,
+                MetadataParseError("Metadata extraction returned None"),
+                repo_name,
+            )
         return metadata
-    except (HttpSessionResponseError, HttpSessionDecodeError) as e:
+    except (HttpSessionResponseError, HttpSessionDecodeError, HttpSessionTechnicalError) as e:
         # These exceptions are raised by get_decoded_url.
         # Treat them as errors that only relate to single datasets and
         # skip this dataset.
@@ -88,6 +120,7 @@ async def _extract_metadata(
         msg = "caught recoverable exception, omitting metadataset"
         otel_span.add_event(msg)
         logging.exception(msg)
+        _log_failed_entry(url, e, repo_name)
         return None
 
 
@@ -95,7 +128,8 @@ async def _extract_metadata(
 async def _extract_many_metadata(
         urls: List[str],
         session: HttpSession,
-        extractor: MetadataExtractor) -> Tuple[Optional[List[Dict]], Dict]:
+        extractor: MetadataExtractor,
+        repo_name: str) -> Tuple[Optional[List[Dict]], Dict]:
     """
     Extracts metadata for multiple URLs asynchronously.
 
@@ -107,6 +141,8 @@ async def _extract_many_metadata(
             The http session to use to download the URLs content.
         extractor : MetadataExtractor
             The metadata extractor to use.
+        repo_name : str
+            The name of the repository (for logging failed entries).
 
     Returns
     -------
@@ -117,7 +153,7 @@ async def _extract_many_metadata(
             metadata extraction failed).
     """
     otel_span = trace.get_current_span()
-    extractors = [_extract_metadata(url, session, extractor) for url in urls]
+    extractors = [_extract_metadata(url, session, extractor, repo_name) for url in urls]
     datasets = await asyncio.gather(*extractors, return_exceptions=True)
     for dataset in datasets:
         if isinstance(dataset, Exception):
@@ -177,7 +213,9 @@ async def scrape_repo(
             urls = list(parser.datasets)
             if config.metadata:
                 extractor = MetadataExtractor.create_instance(config.metadata)
-                metadata, report = await _extract_many_metadata(urls, session, extractor)
+                metadata, report = await _extract_many_metadata(
+                    urls, session, extractor, config.name
+                )
                 return metadata, report
 
     except (HttpSessionFetchError, SitemapParseError, MetadataParseError) as e:
