@@ -5,7 +5,7 @@
     "@type": "Dataset",
     "@id":
         (if has("doi")
-            then "https://doi.org/" + .doi
+            then "https://doi.org/" + (.doi | if type == "array" then .[0] else . end)
         elif has("@id")
             then "https://repository.publisso.de/resource/" + .["@id"]
         else
@@ -19,8 +19,8 @@
             {
               "@type": "PropertyValue",
               "propertyID": "https://registry.identifiers.org/registry/doi",
-              "value": .doi,
-              "url": ("https://doi.org/" +  .doi)
+              "value": (.doi | if type == "array" then .[0] else . end),
+              "url": ("https://doi.org/" +  (.doi | if type == "array" then .[0] else . end))
             }
          else empty end),
         (."@id" | if . then
