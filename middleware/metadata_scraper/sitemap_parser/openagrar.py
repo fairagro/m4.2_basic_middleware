@@ -72,7 +72,7 @@ class SitemapParserOpenAgrar(SitemapParser):
                     "Cloudflare JavaScript challenge detected at OpenAgrar. "
                     "Automated access is blocked. Requires headless browser or manual API access."
                 )
-            
+
             json_objs = json.loads(self.content)
             mods_ids = [doc['id'] for doc in json_objs['response']['docs']]
             for mid in mods_ids:

@@ -67,7 +67,7 @@ def _log_failed_entry(url: str, error: Exception, repo_name: str) -> None:
         "error_type": type(error).__name__,
     }
     try:
-        with open(FAILED_ENTRIES_LOG, "a") as f:
+        with open(FAILED_ENTRIES_LOG, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
     except OSError as e:
         logging.warning("Could not write to failed entries log: %s", e)
@@ -104,7 +104,11 @@ async def _extract_metadata(
         content = await session.get_decoded_url(url)
         metadata = extractor.get_metadata_or_log_error(content, url)
         if metadata is None:
-            _log_failed_entry(url, MetadataParseError("Metadata extraction returned None"), repo_name)
+            _log_failed_entry(
+                url,
+                MetadataParseError("Metadata extraction returned None"),
+                repo_name,
+            )
         return metadata
     except (HttpSessionResponseError, HttpSessionDecodeError, HttpSessionTechnicalError) as e:
         # These exceptions are raised by get_decoded_url.
@@ -209,7 +213,9 @@ async def scrape_repo(
             urls = list(parser.datasets)
             if config.metadata:
                 extractor = MetadataExtractor.create_instance(config.metadata)
-                metadata, report = await _extract_many_metadata(urls, session, extractor, config.name)
+                metadata, report = await _extract_many_metadata(
+                    urls, session, extractor, config.name
+                )
                 return metadata, report
 
     except (HttpSessionFetchError, SitemapParseError, MetadataParseError) as e:

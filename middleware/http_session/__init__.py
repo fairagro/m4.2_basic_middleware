@@ -154,77 +154,9 @@ class HttpSession(ClientSession):
 
         parsed_url = urlparse(url)  # does not raise
         if parsed_url.scheme in ["http", "https"]:
-            error = None
-            for attempt in range(_RETRY_ATTEMPTS):
-                try:
-                    async with self.get(url) as response:
-                        # treat 5xx like a technical network error (retryable)
-                        if 500 <= response.status < 600:
-                            otel_span.add_event(
-                                "server reponse 5xx, raising HttpSessionTechnicalError"
-                            )
-                            raise HttpSessionTechnicalError(
-                                f"Server error {response.status} for {url}"
-                            )
-                        # treat 4xx as response error (permanent, not retried)
-                        if 400 <= response.status < 500:
-                            otel_span.add_event(
-                                "server reponse 4xx, raising HttpSessionResponseError"
-                            )
-                            raise HttpSessionResponseError(
-                                f"Server error {response.status} for {url}"
-                            )
-                        encoded_content = await response.read()
-                        break
-                except HttpSessionResponseError:
-                    raise
-                except (ClientError, asyncio.TimeoutError) as e:
-                    otel_span.record_exception(e)
-                    error = HttpSessionTechnicalError(f"Cannot fetch {url}: {e}")
-                    error.__cause__ = e
-                except HttpSessionTechnicalError as e:
-                    error = e
-                # Retry transient errors with exponential backoff + jitter
-                if attempt < _RETRY_ATTEMPTS - 1:
-                    delay = _RETRY_BACKOFF_SECONDS[
-                        min(attempt, len(_RETRY_BACKOFF_SECONDS) - 1)
-                    ]
-                    delay += random.random()  # jitter
-                    logging.warning(
-                        "Retry %d/%d for %s in %.1fs",
-                        attempt + 1,
-                        _RETRY_ATTEMPTS,
-                        url,
-                        delay,
-                    )
-                    await asyncio.sleep(delay)
-            else:
-                # All retries exhausted — raise the last error
-                otel_span.add_event(
-                    "caught network-related exception, raising HttpSessionTechnicalError"
-                )
-                raise error
+            encoded_content = await self._fetch_http(url, otel_span)
         elif parsed_url.scheme == "file":
-            try:
-                # We need to deal with the following situation:
-                # urlparse('file://test') => netloc = 'test', path = '', joined = 'test'
-                # urlparse('file:///test') => netloc = '', path = '/test', joined = '\test'
-                # urlparse('file://./test') => netloc = '.', path = '/test', joined = '\test'
-                # In the last case the path is relative, so the result is wrong. Thus this code:
-                base_path = PurePath(parsed_url.netloc)
-                if base_path == PurePath("."):
-                    path = base_path / parsed_url.path.lstrip("/").lstrip("\\")
-                else:
-                    path = base_path / parsed_url.path
-                async with aiofiles.open(path, "rb") as f:
-                    encoded_content = await f.read()
-            except Exception as e:
-                otel_span.record_exception(e)
-                otel_span.add_event(
-                    "caught exception when trying to read file, "
-                    "raising HttpSessionResponseError"
-                )
-                raise HttpSessionResponseError(f"Cannot read file {url}: {e}") from e
+            encoded_content = await self._read_file(url, parsed_url, otel_span)
         else:
             otel_span.add_event(
                 "found unsupported URL protocol, raising HttpSessionArgumentError"
@@ -246,3 +178,77 @@ class HttpSession(ClientSession):
             ) from e
 
         return content
+
+    async def _fetch_http(self, url: str, otel_span) -> bytes:
+        """Fetch content from an HTTP(S) URL with retry + backoff."""
+        error = None
+        for attempt in range(_RETRY_ATTEMPTS):
+            try:
+                async with self.get(url) as response:
+                    # treat 5xx like a technical network error (retryable)
+                    if 500 <= response.status < 600:
+                        otel_span.add_event(
+                            "server reponse 5xx, raising HttpSessionTechnicalError"
+                        )
+                        raise HttpSessionTechnicalError(
+                            f"Server error {response.status} for {url}"
+                        )
+                    # treat 4xx as response error (permanent, not retried)
+                    if 400 <= response.status < 500:
+                        otel_span.add_event(
+                            "server reponse 4xx, raising HttpSessionResponseError"
+                        )
+                        raise HttpSessionResponseError(
+                            f"Server error {response.status} for {url}"
+                        )
+                    return await response.read()
+            except (ClientError, asyncio.TimeoutError) as e:
+                otel_span.record_exception(e)
+                error = HttpSessionTechnicalError(f"Cannot fetch {url}: {e}")
+                error.__cause__ = e
+            except HttpSessionTechnicalError as e:
+                error = e
+            # Retry transient errors with exponential backoff + jitter
+            if attempt < _RETRY_ATTEMPTS - 1:
+                delay = _RETRY_BACKOFF_SECONDS[
+                    min(attempt, len(_RETRY_BACKOFF_SECONDS) - 1)
+                ]
+                delay += random.random()  # jitter
+                logging.warning(
+                    "Retry %d/%d for %s in %.1fs",
+                    attempt + 1,
+                    _RETRY_ATTEMPTS,
+                    url,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+        # All retries exhausted — raise the last error
+        otel_span.add_event(
+            "caught network-related exception, raising HttpSessionTechnicalError"
+        )
+        raise error
+
+    async def _read_file(self, url: str, parsed_url, otel_span) -> bytes:
+        """Read content from a file:// URL."""
+        try:
+            # We need to deal with the following situation:
+            # urlparse('file://test') => netloc = 'test', path = '', joined = 'test'
+            # urlparse('file:///test') => netloc = '', path = '/test', joined = '\test'
+            # urlparse('file://./test') => netloc = '.', path = '/test', joined = '\test'
+            # In the last case the path is relative, so the result is wrong. Thus this code:
+            base_path = PurePath(parsed_url.netloc)
+            if base_path == PurePath("."):
+                path = base_path / parsed_url.path.lstrip("/").lstrip("\\")
+            else:
+                path = base_path / parsed_url.path
+            async with aiofiles.open(path, "rb") as f:
+                return await f.read()
+        except Exception as e:
+            otel_span.record_exception(e)
+            otel_span.add_event(
+                "caught exception when trying to read file, "
+                "raising HttpSessionResponseError"
+            )
+            raise HttpSessionResponseError(
+                f"Cannot read file {url}: {e}"
+            ) from e
